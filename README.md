@@ -10,3 +10,6 @@ AI-powered study assistant designed to help students learn concepts, generate qu
 
 ## Status
 Currently in development.
+
+## Next Goal
+Build Version 1 of the AI Study Helper.
