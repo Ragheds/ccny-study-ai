@@ -20,9 +20,12 @@ export default function Home() {
       Join Waitlist
     </button>
 
-    <button className="border px-6 py-3 rounded-full">
-      View Progress
-    </button>
+    <a
+  href="/progress"
+  className="border px-6 py-3 rounded-full"
+>
+  View Progress
+</a>
   </div>
 
   <p className="mt-12 text-sm text-gray-500">
