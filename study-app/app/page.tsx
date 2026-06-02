@@ -1,22 +1,33 @@
 export default function Home() {
   return (
-    <main className="min-h-screen flex flex-col items-center justify-center text-center p-8">
-      <h1 className="text-5xl font-bold mb-4">
-        CCNY Study AI
-      </h1>
+    <main className="min-h-screen flex flex-col items-center justify-center text-center px-6">
+  <h1 className="text-6xl font-bold mb-6">
+    CCNY Study AI
+  </h1>
 
-      <p className="text-xl text-gray-600 mb-8 max-w-2xl">
-        AI-powered study assistant designed to help students learn concepts,
-        generate quizzes, summarize notes, and organize study sessions.
-      </p>
+  <p className="text-2xl text-gray-600 max-w-3xl mb-8">
+    The AI-powered study platform built for students.
+  </p>
 
-      <div className="bg-black text-white px-6 py-3 rounded-full">
-        Coming Soon 🚀
-      </div>
+  <div className="space-y-2 mb-10">
+    <p>📚 Generate quizzes</p>
+    <p>📝 Summarize notes</p>
+    <p>🧠 Master concepts faster</p>
+  </div>
 
-      <p className="mt-10 text-sm text-gray-500">
-        Built by Raghed while studying Computer Science at CCNY.
-      </p>
-    </main>
+  <div className="flex gap-4">
+    <button className="bg-black text-white px-6 py-3 rounded-full">
+      Join Waitlist
+    </button>
+
+    <button className="border px-6 py-3 rounded-full">
+      View Progress
+    </button>
+  </div>
+
+  <p className="mt-12 text-sm text-gray-500">
+    Built by Raghed while studying Computer Science at CCNY.
+  </p>
+</main>
   );
 }
