@@ -4,7 +4,7 @@ import { useState } from "react";
 
 export default function NotesPage() {
   const [notes, setNotes] = useState("");
-  const [submittedNotes, setSubmittedNotes] = useState("");
+const [summary, setSummary] = useState("");
 
   return (
     <main className="min-h-screen max-w-4xl mx-auto p-8">
@@ -25,13 +25,15 @@ export default function NotesPage() {
 
       <button
         className="mt-4 bg-black text-white px-6 py-3 rounded-full"
-        onClick={() => setSubmittedNotes(notes)}
-      >
+onClick={() => {
+  const words = notes.split(" ").slice(0, 25).join(" ");
+  setSummary(words + "...");
+}}      >
         Summarize Notes
       </button>
 
-      {submittedNotes && (
-        <div className="mt-8 border rounded-xl p-4">
+{summary && (
+            <div className="mt-8 border rounded-xl p-4">
         <h2 className="font-bold mb-2">
   AI Summary
 </h2>
@@ -47,7 +49,7 @@ export default function NotesPage() {
     Original Notes
   </h3>
 
-  <p>{submittedNotes}</p>
+<p>{summary}</p>
 </div>
         </div>
       )}
