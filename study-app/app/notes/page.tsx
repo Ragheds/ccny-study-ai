@@ -5,7 +5,7 @@ import { useState } from "react";
 export default function NotesPage() {
   const [notes, setNotes] = useState("");
 const [summary, setSummary] = useState("");
-
+const [loading, setLoading] = useState(false);
   return (
     <main className="min-h-screen max-w-4xl mx-auto p-8">
       <h1 className="text-5xl font-bold mb-4">
@@ -26,12 +26,21 @@ const [summary, setSummary] = useState("");
       <button
         className="mt-4 bg-black text-white px-6 py-3 rounded-full"
 onClick={() => {
-  const words = notes.split(" ").slice(0, 25).join(" ");
-  setSummary(words + "...");
+  setLoading(true);
+
+  setTimeout(() => {
+    const words = notes.split(" ").slice(0, 25).join(" ");
+    setSummary(words + "...");
+    setLoading(false);
+  }, 1500);
 }}      >
         Summarize Notes
       </button>
-
+{loading && (
+  <div className="mt-8 border rounded-xl p-4">
+    <p>Generating summary...</p>
+  </div>
+)}
 {summary && (
             <div className="mt-8 border rounded-xl p-4">
         <h2 className="font-bold mb-2">
