@@ -32,11 +32,23 @@ export default function NotesPage() {
 
       {submittedNotes && (
         <div className="mt-8 border rounded-xl p-4">
-          <h2 className="font-bold mb-2">
-            Submitted Notes
-          </h2>
+        <h2 className="font-bold mb-2">
+  AI Summary
+</h2>
 
-          <p>{submittedNotes}</p>
+<p>
+  This is a placeholder AI summary.
+  In future versions, CCNY Study AI will
+  generate real summaries using AI models.
+</p>
+
+<div className="mt-4 border-t pt-4">
+  <h3 className="font-semibold mb-2">
+    Original Notes
+  </h3>
+
+  <p>{submittedNotes}</p>
+</div>
         </div>
       )}
     </main>
