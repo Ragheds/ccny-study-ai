@@ -22,7 +22,10 @@ const [loading, setLoading] = useState(false);
         value={notes}
         onChange={(e) => setNotes(e.target.value)}
       />
-
+      
+<p className="mt-2 text-sm text-gray-500">
+  Characters: {notes.length}
+</p>
       <button
         className="mt-4 bg-black text-white px-6 py-3 rounded-full"
 onClick={() => {
