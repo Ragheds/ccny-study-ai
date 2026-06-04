@@ -16,9 +16,12 @@ export default function Home() {
   </div>
 
   <div className="flex gap-4">
-    <button className="bg-black text-white px-6 py-3 rounded-full">
-      Join Waitlist
-    </button>
+<a
+  href="/notes"
+  className="bg-black text-white px-6 py-3 rounded-full"
+>
+  Try Demo
+</a>
 
     <a
   href="/progress"
