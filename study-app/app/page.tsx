@@ -51,7 +51,51 @@ export default function Home() {
           </div>
 
         </section>
+<section className="mt-32">
+  <h2 className="text-4xl font-bold text-center mb-12">
+    Everything You Need To Study Smarter
+  </h2>
 
+  <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+
+    <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
+      <h3 className="text-xl font-semibold mb-2">
+        📚 AI Summaries
+      </h3>
+      <p className="text-gray-400">
+        Turn long notes into concise summaries.
+      </p>
+    </div>
+
+    <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
+      <h3 className="text-xl font-semibold mb-2">
+        🧠 Quiz Generator
+      </h3>
+      <p className="text-gray-400">
+        Create practice questions instantly.
+      </p>
+    </div>
+
+    <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
+      <h3 className="text-xl font-semibold mb-2">
+        🎴 Flashcards
+      </h3>
+      <p className="text-gray-400">
+        Learn concepts faster with flashcards.
+      </p>
+    </div>
+
+    <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
+      <h3 className="text-xl font-semibold mb-2">
+        📅 Study Plans
+      </h3>
+      <p className="text-gray-400">
+        Build personalized study schedules.
+      </p>
+    </div>
+
+  </div>
+</section>
       </div>
     </main>
   );
