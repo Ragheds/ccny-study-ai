@@ -96,6 +96,53 @@ export default function Home() {
 
   </div>
 </section>
+<section className="mt-32 text-center">
+
+  <h2 className="text-4xl font-bold mb-12">
+    Built Around CCNY Students
+  </h2>
+
+  <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
+
+    <div>
+      <p className="text-5xl font-bold text-blue-400">
+        73
+      </p>
+      <p className="text-gray-400 mt-2">
+        Undergraduate Majors
+      </p>
+    </div>
+
+    <div>
+      <p className="text-5xl font-bold text-purple-400">
+        47
+      </p>
+      <p className="text-gray-400 mt-2">
+        Master's Programs
+      </p>
+    </div>
+
+    <div>
+      <p className="text-5xl font-bold text-green-400">
+        100+
+      </p>
+      <p className="text-gray-400 mt-2">
+        Courses Supported
+      </p>
+    </div>
+
+    <div>
+      <p className="text-5xl font-bold text-yellow-400">
+        24/7
+      </p>
+      <p className="text-gray-400 mt-2">
+        AI Assistance
+      </p>
+    </div>
+
+  </div>
+
+</section>
       </div>
     </main>
   );
