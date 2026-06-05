@@ -118,7 +118,7 @@ export default function Home() {
         47
       </p>
       <p className="text-gray-400 mt-2">
-        Master's Programs
+        Master&apos;s Programs
       </p>
     </div>
 
@@ -165,7 +165,7 @@ export default function Home() {
         2. Pick Course
       </h3>
       <p className="text-gray-400">
-        Choose the course you're currently studying.
+        Choose the course you&apos;re currently studying.
       </p>
     </div>
 
