@@ -1,39 +1,35 @@
-export default function MajorsPage() {
-  const majors = [
-    "Computer Science",
-    "Mechanical Engineering",
-    "Electrical Engineering",
-    "Civil Engineering",
-    "Biology",
-    "Chemistry",
-    "Physics",
-    "Psychology",
-    "Economics",
-  ];
+import { schools } from "../../data/ccny";
 
+export default function MajorsPage() {
   return (
-    <main className="min-h-screen bg-gray-50 p-8">
-      <div className="max-w-5xl mx-auto bg-white p-8 rounded-2xl shadow">
+    <main className="min-h-screen bg-black text-white p-8">
+      <div className="max-w-6xl mx-auto">
+
         <h1 className="text-5xl font-bold mb-4">
-          CCNY Majors
+          CCNY Schools & Divisions
         </h1>
 
-        <p className="text-gray-600 mb-8">
-          Select your major to access course-aware AI tools.
+        <p className="text-gray-400 mb-10">
+          Choose a school to explore majors and AI-powered study tools.
         </p>
 
-        <div className="grid md:grid-cols-2 gap-4">
-          {majors.map((major) => (
+        <div className="grid md:grid-cols-2 gap-6">
+          {schools.map((school) => (
             <div
-              key={major}
-              className="border rounded-xl p-4 hover:shadow cursor-pointer"
+              key={school.name}
+              className="bg-white/5 border border-white/10 rounded-2xl p-6 hover:bg-white/10 transition"
             >
-              <h2 className="font-semibold text-lg">
-                {major}
+              <h2 className="text-2xl font-semibold mb-3">
+                {school.name}
               </h2>
+
+              <p className="text-gray-400">
+                {school.majors.length} programs
+              </p>
             </div>
           ))}
         </div>
+
       </div>
     </main>
   );
