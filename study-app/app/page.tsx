@@ -143,6 +143,53 @@ export default function Home() {
   </div>
 
 </section>
+<section className="mt-32">
+
+  <h2 className="text-4xl font-bold text-center mb-12">
+    How It Works
+  </h2>
+
+  <div className="grid md:grid-cols-4 gap-6">
+
+    <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
+      <h3 className="text-xl font-semibold mb-3">
+        1. Choose Major
+      </h3>
+      <p className="text-gray-400">
+        Select your CCNY major and academic path.
+      </p>
+    </div>
+
+    <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
+      <h3 className="text-xl font-semibold mb-3">
+        2. Pick Course
+      </h3>
+      <p className="text-gray-400">
+        Choose the course you're currently studying.
+      </p>
+    </div>
+
+    <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
+      <h3 className="text-xl font-semibold mb-3">
+        3. Upload Notes
+      </h3>
+      <p className="text-gray-400">
+        Add lectures, notes, PDFs, and study materials.
+      </p>
+    </div>
+
+    <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
+      <h3 className="text-xl font-semibold mb-3">
+        4. Learn Faster
+      </h3>
+      <p className="text-gray-400">
+        Get summaries, quizzes, flashcards, and study plans.
+      </p>
+    </div>
+
+  </div>
+
+</section>
       </div>
     </main>
   );
