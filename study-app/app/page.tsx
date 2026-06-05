@@ -1,7 +1,9 @@
 export default function Home() {
   return (
-    <main className="min-h-screen bg-black text-white">
-      <div className="max-w-7xl mx-auto px-8 py-24">
+    <main className="relative min-h-screen bg-black text-white overflow-hidden">
+      <div className="absolute top-0 left-0 w-[500px] h-[500px] bg-blue-500/20 blur-3xl rounded-full" />
+      <div className="absolute bottom-0 right-0 w-[500px] h-[500px] bg-purple-500/20 blur-3xl rounded-full" />
+      <div className="relative z-10 max-w-7xl mx-auto px-8 py-24">
 
         <nav className="flex justify-between items-center mb-24">
           <h1 className="text-2xl font-bold">
