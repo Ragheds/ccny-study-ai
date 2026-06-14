@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { AITutor } from "@/components/AITutor";
 
 type SavedCourse = {
   code: string;
@@ -123,16 +124,8 @@ export default function DashboardPage() {
         )}
 
         {activeTab === "AI Tutor" && (
-          <div className="text-center py-20">
-            <div className="w-16 h-16 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center mx-auto mb-4">
-              <svg className="w-8 h-8 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
-              </svg>
-            </div>
-            <h3 className="text-xl font-bold mb-2">AI Tutor</h3>
-            <p className="text-gray-500 text-sm">Coming soon — ask anything about your courses.</p>
-          </div>
-        )}
+  <AITutor major={major} courses={courses} />
+)}
 
         {activeTab === "Flashcards" && (
           <div className="text-center py-20">
