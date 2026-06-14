@@ -1,33 +1,17 @@
 "use client";
 
-import { useState, useMemo } from "react";
-import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useState, useMemo, useEffect } from "react";import Link from "next/link";
+import { useParams, useRouter } from "next/navigation";
 import { schools } from "../../../data/ccny";
 import catalog from "../../../data/catalog.json";
 
-type Course = {
-  code: string;
-  name: string;
-};
-
-type Department = {
-  name: string;
-  prefix: string;
-  courses: Course[];
-};
-
-type CatalogSection = {
-  section: string;
-  color: string;
-  departments: Department[];
-};
+type Course = { code: string; name: string; };
+type Department = { name: string; prefix: string; courses: Course[]; };
+type CatalogSection = { section: string; color: string; departments: Department[]; };
 
 const typedCatalog = catalog as CatalogSection[];
 
-// Map major codes to their school section in catalog
 const MAJOR_TO_SECTION: Record<string, string> = {
-  // Colin Powell
   "ANTH-BA": "Colin Powell School for Civic and Global Leadership",
   "ASALARU-BA": "Colin Powell School for Civic and Global Leadership",
   "ECON4-BAMA": "Colin Powell School for Civic and Global Leadership",
@@ -43,7 +27,6 @@ const MAJOR_TO_SECTION: Record<string, string> = {
   "IPSYU-BS": "Colin Powell School for Civic and Global Leadership",
   "SOC-BA": "Colin Powell School for Civic and Global Leadership",
   "STRMAN-BBA": "Colin Powell School for Civic and Global Leadership",
-  // Humanities & Arts
   "ART-BA": "College of Liberal Arts and Science (Division of Humanities and the Arts)",
   "BLSTD-BA": "College of Liberal Arts and Science (Division of Humanities and the Arts)",
   "COMM-BA": "College of Liberal Arts and Science (Division of Humanities and the Arts)",
@@ -62,7 +45,6 @@ const MAJOR_TO_SECTION: Record<string, string> = {
   "POPMUS-BA": "College of Liberal Arts and Science (Division of Humanities and the Arts)",
   "SONCART-BM": "College of Liberal Arts and Science (Division of Humanities and the Arts)",
   "THTR-BA": "College of Liberal Arts and Science (Division of Humanities and the Arts)",
-  // Sciences
   "BIOCHM-BS": "College of Liberal Arts and Science (Division of Science)",
   "BIOL-BS": "College of Liberal Arts and Science (Division of Science)",
   "BBCC-BS": "College of Liberal Arts and Science (Division of Science)",
@@ -79,7 +61,6 @@ const MAJOR_TO_SECTION: Record<string, string> = {
   "MTHSAP-BS": "College of Liberal Arts and Science (Division of Science)",
   "PHYSCU-BS": "College of Liberal Arts and Science (Division of Science)",
   "LUNDECL-BS": "College of Liberal Arts and Science (Division of Science)",
-  // Engineering
   "BME-BE": "Grove School of Engineering",
   "CHEME-BE": "Grove School of Engineering",
   "CHMEH-BE": "Grove School of Engineering",
@@ -90,26 +71,23 @@ const MAJOR_TO_SECTION: Record<string, string> = {
   "ESENVE-BE": "Grove School of Engineering",
   "MECHE-BE": "Grove School of Engineering",
   "UNDECL-BE": "Grove School of Engineering",
-  // CWE
   "ECEU-BS": "Interdisciplinary Liberal Arts and Science - Center for Worker Education",
   "SJURBLF-BA": "Interdisciplinary Liberal Arts and Science - Center for Worker Education",
-  // Education
   "BEJ-BSED": "School of Education",
   "BCEU-BSED": "School of Education",
   "CEJ-BSED": "School of Education",
   "CHLDU-BSED": "School of Education",
   "LOESP-BA": "School of Education",
   "SCILNPE-BS": "School of Education",
-  // Hub
   "UNDECL-BA": "Student Academic Success Hub (The Hub)",
-  // Architecture
   "ARCH-BARCH": "The Bernard and Ann Spitzer School of Architecture",
   "ARCH-BS": "The Bernard and Ann Spitzer School of Architecture",
   "URBSTBE-BA": "The Bernard and Ann Spitzer School of Architecture",
 };
 
-export default function DashboardPage() {
+export default function CoursePickerPage() {
   const params = useParams();
+  const router = useRouter();
   const code = params.code as string;
 
   const [search, setSearch] = useState("");
@@ -117,18 +95,25 @@ export default function DashboardPage() {
   const [activeSection, setActiveSection] = useState<string | null>(null);
   const [showFilters, setShowFilters] = useState(false);
 
-  // Find the major info
-  const major =
-    schools
-      .flatMap((school) =>
-        school.plans.map((plan) => ({ ...plan, school: school.name }))
-      )
-      .find((plan) => plan.code === code) ?? null;
+useEffect(() => {
+  const savedCourses = localStorage.getItem("ccny_courses");
+  if (savedCourses) {
+    const parsed = JSON.parse(savedCourses);
+    const codes = new Set<string>(parsed.map((c: { code: string }) => c.code));
+    setSelected(codes);
+  }
+}, []);
 
-  // Get the preferred school section for this major
+  const major = useMemo(() => {
+    for (const school of schools) {
+      const plan = school.plans.find((p) => p.code === code);
+      if (plan) return { ...plan, school: school.name };
+    }
+    return null;
+  }, [code]);
+
   const preferredSection = MAJOR_TO_SECTION[code] ?? null;
 
-  // Reorder catalog so preferred section comes first
   const orderedCatalog = useMemo(() => {
     if (!preferredSection) return typedCatalog;
     const preferred = typedCatalog.filter((s) => s.section === preferredSection);
@@ -139,11 +124,7 @@ export default function DashboardPage() {
   const toggleCourse = (courseCode: string) => {
     setSelected((prev) => {
       const next = new Set(prev);
-      if (next.has(courseCode)) {
-        next.delete(courseCode);
-      } else {
-        next.add(courseCode);
-      }
+      next.has(courseCode) ? next.delete(courseCode) : next.add(courseCode);
       return next;
     });
   };
@@ -157,9 +138,9 @@ export default function DashboardPage() {
           .map((dept) => ({
             ...dept,
             courses: dept.courses.filter(
-              (course) =>
-                course.code.toLowerCase().includes(q) ||
-                course.name.toLowerCase().includes(q)
+              (c) =>
+                c.code.toLowerCase().includes(q) ||
+                c.name.toLowerCase().includes(q)
             ),
           }))
           .filter((dept) => dept.courses.length > 0),
@@ -171,14 +152,37 @@ export default function DashboardPage() {
       );
   }, [search, activeSection, orderedCatalog]);
 
+  const handleSave = () => {
+    if (!major) return;
+
+    // Build selected course objects with full info
+    const selectedCourses: { code: string; name: string; section: string; color: string }[] = [];
+    for (const section of typedCatalog) {
+      for (const dept of section.departments) {
+        for (const course of dept.courses) {
+          if (selected.has(course.code)) {
+            selectedCourses.push({
+              code: course.code,
+              name: course.name,
+              section: section.section,
+              color: section.color,
+            });
+          }
+        }
+      }
+    }
+
+    localStorage.setItem("ccny_major", JSON.stringify({ code: major.code, name: major.name, school: major.school }));
+    localStorage.setItem("ccny_courses", JSON.stringify(selectedCourses));
+    router.push("/dashboard");
+  };
+
   if (!major) {
     return (
       <main className="min-h-screen bg-black text-white flex items-center justify-center">
         <div className="text-center">
           <p className="text-gray-500 mb-4">Major not found: {code}</p>
-          <Link href="/majors" className="text-blue-400 hover:underline">
-            ← Back to majors
-          </Link>
+          <Link href="/majors" className="text-blue-400 hover:underline">← Back to majors</Link>
         </div>
       </main>
     );
@@ -188,107 +192,74 @@ export default function DashboardPage() {
     <main className="min-h-screen bg-black text-white">
 
       {/* Header */}
-      <div className="border-b border-white/10 bg-black/80 backdrop-blur sticky top-0 z-20">
+      <div className="border-b border-white/10 bg-black/90 backdrop-blur sticky top-0 z-20">
         <div className="max-w-7xl mx-auto px-6 py-4">
-          <div className="flex items-center gap-4 mb-4">
-            <Link
-              href="/majors"
-              className="text-gray-500 hover:text-white transition text-sm"
-            >
-              ← Majors
-            </Link>
+          <div className="flex items-center gap-3 mb-3">
+            <Link href="/majors" className="text-gray-500 hover:text-white transition text-sm">← Majors</Link>
             <span className="text-gray-700">/</span>
             <span className="text-sm text-blue-400 font-mono">{major.code}</span>
           </div>
-
           <div className="flex items-start justify-between gap-4">
             <div>
-              <h1 className="text-3xl font-bold">{major.name}</h1>
-              <p className="text-gray-500 text-sm mt-1">{major.school}</p>
+              <h1 className="text-2xl font-bold">{major.name}</h1>
+              <p className="text-gray-500 text-sm mt-0.5">{major.school}</p>
             </div>
             {selected.size > 0 && (
-              <div className="flex items-center gap-3 shrink-0">
-                <span className="text-sm text-white/60">
-                  {selected.size} selected
-                </span>
-                <button className="bg-white text-black text-sm font-semibold px-4 py-2 rounded-xl transition hover:bg-gray-200">
-                  Save My Courses
-                </button>
-              </div>
-            )}
-          </div>
-
-          {/* Nav tabs */}
-          <div className="flex gap-6 mt-4 text-sm overflow-x-auto">
-            {["My Courses", "AI Tutor", "Flashcards", "Quizzes", "Notes", "Study Planner"].map((tab) => (
               <button
-                key={tab}
-                className={`pb-3 border-b-2 transition font-medium whitespace-nowrap ${
-                  tab === "My Courses"
-                    ? "border-white text-white"
-                    : "border-transparent text-gray-500 hover:text-gray-300"
-                }`}
+                onClick={handleSave}
+                className="shrink-0 bg-white text-black text-sm font-semibold px-5 py-2.5 rounded-xl hover:bg-gray-100 transition"
               >
-                {tab}
+                Save {selected.size} Course{selected.size !== 1 ? "s" : ""} →
               </button>
-            ))}
+            )}
           </div>
         </div>
       </div>
 
-      {/* Course Picker */}
+      {/* Body */}
       <div className="max-w-7xl mx-auto px-6 py-8">
-
         <div className="mb-8">
           <h2 className="text-xl font-bold mb-1">Pick Your Courses</h2>
           <p className="text-gray-500 text-sm">
-            Select the courses you are taking or have taken for your {major.name} degree.
+            Select every course you are taking or have taken. Your AI tools will use these for context.
           </p>
         </div>
 
         {/* Search */}
-        <div className="relative mb-6">
-          <svg
-            className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 w-4 h-4"
-            fill="none" viewBox="0 0 24 24" stroke="currentColor"
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-              d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+        <div className="relative mb-5">
+          <svg className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
           </svg>
           <input
-            placeholder="Search courses... (e.g. CSC 10300, Data Structures)"
+            placeholder="Search by code or name... (e.g. CSC 10300, Calculus)"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full bg-white/5 border border-white/10 rounded-2xl pl-11 pr-4 py-3 outline-none focus:border-white/20 transition text-sm placeholder:text-gray-600"
+            className="w-full bg-white/5 border border-white/10 rounded-2xl pl-11 pr-10 py-3 outline-none focus:border-white/25 transition text-sm placeholder:text-gray-600"
           />
           {search && (
-            <button
-              onClick={() => setSearch("")}
-              className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white"
-            >
-              ✕
-            </button>
+            <button onClick={() => setSearch("")} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white">✕</button>
           )}
         </div>
 
-        {/* Section filter pills */}
+        {/* Filter toggle */}
         <div className="mb-8">
           <button
             onClick={() => setShowFilters((v) => !v)}
             className="flex items-center gap-2 text-sm text-gray-400 hover:text-white transition mb-3"
           >
-            <span className="text-lg leading-none">☰</span>
+            <div className="flex flex-col gap-1">
+              <span className="block w-4 h-0.5 bg-current"></span>
+              <span className="block w-4 h-0.5 bg-current"></span>
+              <span className="block w-4 h-0.5 bg-current"></span>
+            </div>
             <span>Filter by School</span>
           </button>
-
           {showFilters && (
             <div className="flex gap-2 flex-wrap">
               <button
                 onClick={() => setActiveSection(null)}
                 className={`text-xs font-semibold px-3 py-1.5 rounded-full border transition ${
-                  activeSection === null
-                    ? "bg-white text-black border-white"
-                    : "border-white/10 text-gray-400 hover:text-white"
+                  activeSection === null ? "bg-white text-black border-white" : "border-white/10 text-gray-400 hover:text-white"
                 }`}
               >
                 All Schools
@@ -311,7 +282,7 @@ export default function DashboardPage() {
           )}
         </div>
 
-        {/* Course grid */}
+        {/* Courses */}
         <div className="space-y-12">
           {filtered.map((section) => (
             <div key={section.section}>
@@ -322,13 +293,10 @@ export default function DashboardPage() {
                   {section.departments.reduce((a, d) => a + d.courses.length, 0)} courses
                 </span>
               </div>
-
               <div className="space-y-6">
                 {section.departments.map((dept) => (
                   <div key={dept.name}>
-                    <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-widest mb-3">
-                      {dept.name}
-                    </h4>
+                    <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-widest mb-3">{dept.name}</h4>
                     <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2">
                       {dept.courses.map((course) => {
                         const isSelected = selected.has(course.code);
@@ -338,26 +306,19 @@ export default function DashboardPage() {
                             onClick={() => toggleCourse(course.code)}
                             className={`group text-left rounded-xl border px-4 py-3 transition-all ${
                               isSelected
-                                ? "border-white/60 bg-white/10"
-                                : "border-white/8 bg-white/3 hover:bg-white/8 hover:border-white/30"
+                                ? "border-white/50 bg-white/10"
+                                : "border-white/8 bg-white/3 hover:bg-white/6 hover:border-white/20"
                             }`}
                           >
                             <div className="flex items-start justify-between gap-2">
                               <div className="min-w-0">
-                                <p
-                                  className="text-xs font-mono font-bold mb-1"
-                                  style={{ color: section.color }}
-                                >
+                                <p className="text-xs font-mono font-bold mb-1" style={{ color: section.color }}>
                                   {course.code}
                                 </p>
-                                <p className="text-sm text-gray-300 leading-snug line-clamp-2">
-                                  {course.name}
-                                </p>
+                                <p className="text-sm text-gray-300 leading-snug line-clamp-2">{course.name}</p>
                               </div>
                               <div className={`shrink-0 w-5 h-5 rounded-full border-2 flex items-center justify-center mt-0.5 transition ${
-                                isSelected
-                                  ? "border-white bg-white"
-                                  : "border-white/20 group-hover:border-white/50"
+                                isSelected ? "border-white bg-white" : "border-white/20 group-hover:border-white/50"
                               }`}>
                                 {isSelected && (
                                   <svg className="w-3 h-3 text-black" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -372,13 +333,13 @@ export default function DashboardPage() {
                     </div>
                   </div>
                 ))}
-              </div>
+        </div>
             </div>
           ))}
         </div>
       </div>
 
-      {/* Sticky bottom bar */}
+      {/* Bottom bar */}
       {selected.size > 0 && (
         <div className="fixed bottom-0 left-0 right-0 bg-black/95 backdrop-blur border-t border-white/10 px-6 py-4 z-30">
           <div className="max-w-7xl mx-auto flex items-center justify-between">
@@ -386,13 +347,13 @@ export default function DashboardPage() {
               <span className="text-white font-semibold">{selected.size} course{selected.size !== 1 ? "s" : ""}</span> selected for {major.name}
             </p>
             <div className="flex gap-3">
-              <button
-                onClick={() => setSelected(new Set())}
-                className="text-sm text-gray-500 hover:text-white transition px-4 py-2"
-              >
+              <button onClick={() => setSelected(new Set())} className="text-sm text-gray-500 hover:text-white transition px-4 py-2">
                 Clear
               </button>
-              <button className="bg-white hover:bg-gray-200 text-black text-sm font-semibold px-6 py-2 rounded-xl transition">
+              <button
+                onClick={handleSave}
+                className="bg-white hover:bg-gray-100 text-black text-sm font-semibold px-6 py-2 rounded-xl transition"
+              >
                 Save My Courses →
               </button>
             </div>
