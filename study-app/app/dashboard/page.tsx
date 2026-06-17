@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { AITutor } from "@/components/AITutor";
+import { FlashcardsWorkspace } from "@/components/FlashcardsWorkspace";
 import { useHydrated, useStoredValue } from "@/hooks/useStoredValue";
 import { SavedCourse, SavedMajor } from "@/lib/chatWorkspace";
 import { KEYS } from "@/lib/storage";
@@ -21,7 +22,8 @@ type TabId = (typeof TABS)[number]["id"];
 
 function getInitialTab(): TabId {
   if (typeof window === "undefined") return "courses";
-  return new URLSearchParams(window.location.search).get("tab") === "ai" ? "ai" : "courses";
+  const requestedTab = new URLSearchParams(window.location.search).get("tab");
+  return TABS.find((tab) => tab.id === requestedTab)?.id ?? "courses";
 }
 
 function getInitialCourseCode(): string | null {
@@ -34,13 +36,13 @@ function updateDashboardUrl(tab: TabId, courseCode?: string | null): void {
 
   const params = new URLSearchParams(window.location.search);
 
-  if (tab === "ai") {
-    params.set("tab", "ai");
-  } else {
+  if (tab === "courses") {
     params.delete("tab");
+  } else {
+    params.set("tab", tab);
   }
 
-  if (courseCode) {
+  if ((tab === "ai" || tab === "flashcards") && courseCode) {
     params.set("course", courseCode);
   } else {
     params.delete("course");
@@ -64,9 +66,10 @@ export default function DashboardPage() {
   }, {} as Record<string, SavedCourse[]>);
 
   const openTab = (tab: TabId) => {
-    const courseCode = tab === "ai" ? activeCourseCode ?? courses[0]?.code ?? null : null;
+    const needsCourse = tab === "ai" || tab === "flashcards";
+    const courseCode = needsCourse ? activeCourseCode ?? courses[0]?.code ?? null : null;
     setActiveTab(tab);
-    if (tab === "ai") setActiveCourseCode(courseCode);
+    if (needsCourse) setActiveCourseCode(courseCode);
     updateDashboardUrl(tab, courseCode);
   };
 
@@ -76,9 +79,9 @@ export default function DashboardPage() {
     updateDashboardUrl("ai", course.code);
   };
 
-  const handleTutorCourseChange = (courseCode: string) => {
+  const handleWorkspaceCourseChange = (courseCode: string) => {
     setActiveCourseCode(courseCode);
-    updateDashboardUrl("ai", courseCode);
+    updateDashboardUrl(activeTab === "flashcards" ? "flashcards" : "ai", courseCode);
   };
 
   if (!hydrated) return <main className="min-h-screen bg-[var(--app-bg)]" />;
@@ -235,12 +238,17 @@ export default function DashboardPage() {
             major={major}
             courses={courses}
             activeCourseCode={activeCourseCode}
-            onActiveCourseChange={handleTutorCourseChange}
+            onActiveCourseChange={handleWorkspaceCourseChange}
           />
         )}
 
         {activeTab === "flashcards" && (
-          <ComingSoon title="Flashcards" desc="AI-generated flashcards for your courses." />
+          <FlashcardsWorkspace
+            major={major}
+            courses={courses}
+            activeCourseCode={activeCourseCode}
+            onActiveCourseChange={handleWorkspaceCourseChange}
+          />
         )}
 
         {activeTab === "quizzes" && (

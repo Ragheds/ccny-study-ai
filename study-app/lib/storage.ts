@@ -2,6 +2,7 @@
 // Future-ready: swap localStorage calls here to migrate to a database
 
 export const KEYS = {
+  ACCOUNT: "ccny_account",
   MAJOR: "ccny_major",
   COURSES: "ccny_courses",
   CHAT_HISTORY: "ccny_chat_history",

@@ -195,12 +195,13 @@ ${action === "quiz" ? `Generate a 5-question multiple choice quiz about ${course
 Format each question clearly with 4 options (A, B, C, D) and mark the correct answer at the end.
 Make questions appropriate for a ${major} student at CCNY.` : ""}
 
-${action === "flashcards" ? `Generate 10 flashcards for ${course}.
-Format each as:
-FRONT: [concept or term]
-BACK: [clear definition or explanation]
+${action === "flashcards" ? `Generate exactly 20 flashcards for ${course} (${courseCode}).
+Use this exact format for every card:
+FRONT: [concept, term, or recall prompt]
+BACK: [clear definition, answer, or explanation]
 ---
-Make them specific to what a ${major} student at CCNY would need to study.` : ""}
+Do not include extra headings, numbering outside the FRONT/BACK format, or fewer than 20 cards.
+Make every card specific to what a ${major} student at CCNY would need to study.` : ""}
 
 ${action === "studyguide" ? `Generate a comprehensive study guide for ${course} (${courseCode}).
 Include:
@@ -222,7 +223,7 @@ Make it specific for a ${major} student at ${school}.` : ""}`.trim();
         ...historyMessages,
         { role: "user", content: message },
       ],
-      max_tokens: action === "studyguide" ? 2048 : 1024,
+      max_tokens: action === "studyguide" || action === "flashcards" ? 2048 : 1024,
       temperature: action === "quiz" || action === "flashcards" ? 0.3 : 0.7,
     };
 

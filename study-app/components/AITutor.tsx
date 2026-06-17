@@ -50,7 +50,7 @@ function getPromptForAction(actionId: string, course: SavedCourse): string {
   const prompts: Record<string, string> = {
     studyguide: `Generate a study guide for ${course.name} (${course.code})`,
     quiz: `Generate a 5-question quiz for ${course.name} (${course.code})`,
-    flashcards: `Generate flashcards for ${course.name} (${course.code})`,
+    flashcards: `Generate 20 flashcards for ${course.name} (${course.code})`,
   };
 
   return prompts[actionId] ?? "";

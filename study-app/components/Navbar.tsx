@@ -4,6 +4,9 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { useStoredValue } from "@/hooks/useStoredValue";
+import { AccountProfile } from "@/lib/account";
+import { KEYS } from "@/lib/storage";
 
 const PRIMARY_LINKS = [
   { href: "/dashboard", label: "Dashboard" },
@@ -21,12 +24,18 @@ function isActivePath(pathname: string, href: string): boolean {
   if (href.includes("?")) return false;
   const path = href.split("?")[0];
   if (path === "/") return pathname === "/";
+  if (path === "/dashboard") {
+    return pathname === "/dashboard" || /^\/dashboard\/(?!account$)[^/]+$/.test(pathname);
+  }
   return pathname === path || pathname.startsWith(`${path}/`);
 }
 
 export default function Navbar() {
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [account] = useStoredValue<AccountProfile | null>(KEYS.ACCOUNT, null);
+  const accountHref = account ? "/dashboard/account" : "/login";
+  const accountLabel = account ? "Account" : "Sign in";
 
   return (
     <nav className="sticky top-0 z-50 border-b border-[var(--app-border)] bg-[var(--app-nav)] backdrop-blur">
@@ -90,6 +99,20 @@ export default function Navbar() {
           </div>
 
           <ThemeToggle />
+
+          <Link
+            href={accountHref}
+            className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold transition ${
+              isActivePath(pathname, accountHref)
+                ? "bg-[var(--app-text)] text-[var(--app-bg)]"
+                : "text-[var(--app-muted-strong)] hover:bg-[var(--app-surface-muted)] hover:text-[var(--app-text)]"
+            }`}
+          >
+            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[var(--app-accent-soft)] text-[11px] font-black text-[var(--app-accent)]">
+              {account?.initials ?? "SI"}
+            </span>
+            {accountLabel}
+          </Link>
         </div>
 
         <button
@@ -177,6 +200,23 @@ export default function Navbar() {
               Theme
             </p>
             <ThemeToggle />
+          </div>
+
+          <div className="mt-4">
+            <p className="mb-2 text-[11px] font-semibold uppercase tracking-widest text-[var(--app-muted)]">
+              Account
+            </p>
+
+            <Link
+              href={accountHref}
+              onClick={() => setMenuOpen(false)}
+              className="flex items-center gap-3 rounded-lg bg-[var(--app-surface-muted)] px-4 py-3 text-sm font-medium text-[var(--app-muted-strong)] transition hover:text-[var(--app-text)]"
+            >
+              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--app-accent-soft)] text-xs font-black text-[var(--app-accent)]">
+                {account?.initials ?? "SI"}
+              </span>
+              {accountLabel}
+            </Link>
           </div>
         </div>
       )}
