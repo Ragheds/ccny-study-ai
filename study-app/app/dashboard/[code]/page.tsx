@@ -180,14 +180,14 @@ export default function CoursePickerPage() {
     router.push("/dashboard");
   };
 
-  if (!hydrated) return <main className="min-h-screen bg-black" />;
+  if (!hydrated) return <main className="min-h-screen bg-[var(--app-bg)]" />;
 
   if (!major) {
     return (
-      <main className="min-h-screen bg-black text-white flex items-center justify-center">
+      <main className="min-h-screen bg-[var(--app-bg)] text-[var(--app-text)] flex items-center justify-center">
         <div className="text-center">
-          <p className="text-gray-500 mb-4">Major not found: {code}</p>
-          <Link href="/majors" className="text-blue-400 hover:underline">
+          <p className="text-[var(--app-muted)] mb-4">Major not found: {code}</p>
+          <Link href="/majors" className="text-[var(--app-accent)] hover:underline">
             ← Back to majors
           </Link>
         </div>
@@ -196,27 +196,27 @@ export default function CoursePickerPage() {
   }
 
   return (
-    <main className="min-h-screen bg-black text-white">
-      <div className="border-b border-white/10 bg-black/90 backdrop-blur sticky top-[65px] z-20">
+    <main className="min-h-screen bg-[var(--app-bg)] text-[var(--app-text)]">
+      <div className="border-b border-[var(--app-border)] bg-[var(--app-nav)] backdrop-blur sticky top-[65px] z-20">
         <div className="max-w-7xl mx-auto px-6 py-4">
           <div className="flex items-center gap-3 mb-3">
-            <Link href="/majors" className="text-gray-500 hover:text-white transition text-sm">
+            <Link href="/majors" className="text-[var(--app-muted)] hover:text-[var(--app-text)] transition text-sm">
               ← Majors
             </Link>
-            <span className="text-gray-700">/</span>
-            <span className="text-sm text-blue-400 font-mono">{major.code}</span>
+            <span className="text-[var(--app-muted)]">/</span>
+            <span className="text-sm text-[var(--app-accent)] font-mono">{major.code}</span>
           </div>
 
           <div className="flex items-start justify-between gap-4">
             <div>
               <h1 className="text-2xl font-bold">{major.name}</h1>
-              <p className="text-gray-500 text-sm mt-0.5">{major.school}</p>
+              <p className="text-[var(--app-muted)] text-sm mt-0.5">{major.school}</p>
             </div>
 
             {selected.size > 0 && (
               <button
                 onClick={handleSave}
-                className="shrink-0 bg-white text-black text-sm font-semibold px-5 py-2.5 rounded-xl hover:bg-gray-100 transition"
+                className="shrink-0 bg-[var(--app-text)] text-[var(--app-bg)] text-sm font-semibold px-5 py-2.5 rounded-xl transition hover:opacity-90"
               >
                 Save {selected.size} Course{selected.size !== 1 ? "s" : ""} →
               </button>
@@ -228,13 +228,13 @@ export default function CoursePickerPage() {
       <div className="max-w-7xl mx-auto px-6 py-8">
         <div className="mb-8">
           <h2 className="text-xl font-bold mb-1">Pick Your Courses</h2>
-          <p className="text-gray-500 text-sm">
+          <p className="text-[var(--app-muted)] text-sm">
             Select every course you are taking or have taken. Your AI tools will use these for context.
           </p>
         </div>
 
         <div className="relative mb-5">
-          <svg className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <svg className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--app-muted)] w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
           </svg>
 
@@ -242,11 +242,11 @@ export default function CoursePickerPage() {
             placeholder="Search by code or name..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full bg-white/5 border border-white/10 rounded-2xl pl-11 pr-10 py-3 outline-none focus:border-white/25 transition text-sm placeholder:text-gray-600"
+            className="w-full bg-[var(--app-surface)] border border-[var(--app-border)] rounded-2xl pl-11 pr-10 py-3 outline-none focus:border-[var(--app-border-strong)] transition text-sm text-[var(--app-text)] placeholder:text-[var(--app-muted)] shadow-sm"
           />
 
           {search && (
-            <button onClick={() => setSearch("")} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white">
+            <button onClick={() => setSearch("")} className="absolute right-4 top-1/2 -translate-y-1/2 text-[var(--app-muted)] hover:text-[var(--app-text)]">
               ✕
             </button>
           )}
@@ -255,7 +255,7 @@ export default function CoursePickerPage() {
         <div className="mb-8">
           <button
             onClick={() => setShowFilters((value) => !value)}
-            className="flex items-center gap-2 text-sm text-gray-400 hover:text-white transition mb-3"
+            className="flex items-center gap-2 text-sm text-[var(--app-muted)] hover:text-[var(--app-text)] transition mb-3"
           >
             <div className="flex flex-col gap-1">
               <span className="block w-4 h-0.5 bg-current" />
@@ -271,8 +271,8 @@ export default function CoursePickerPage() {
                 onClick={() => setActiveSection(null)}
                 className={`text-xs font-semibold px-3 py-1.5 rounded-full border transition ${
                   activeSection === null
-                    ? "bg-white text-black border-white"
-                    : "border-white/10 text-gray-400 hover:text-white"
+                    ? "bg-[var(--app-text)] text-[var(--app-bg)] border-[var(--app-text)]"
+                    : "border-[var(--app-border)] text-[var(--app-muted)] hover:text-[var(--app-text)]"
                 }`}
               >
                 All Schools
@@ -302,7 +302,7 @@ export default function CoursePickerPage() {
               <div className="flex items-center gap-3 mb-6">
                 <div className="w-1 h-6 rounded-full" style={{ backgroundColor: section.color }} />
                 <h3 className="text-lg font-bold">{section.section}</h3>
-                <span className="text-gray-600 text-sm">
+                <span className="text-[var(--app-muted)] text-sm">
                   {section.departments.reduce((total, dept) => total + dept.courses.length, 0)} courses
                 </span>
               </div>
@@ -310,7 +310,7 @@ export default function CoursePickerPage() {
               <div className="space-y-6">
                 {section.departments.map((dept) => (
                   <div key={dept.name}>
-                    <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-widest mb-3">
+                    <h4 className="text-xs font-semibold text-[var(--app-muted)] uppercase tracking-widest mb-3">
                       {dept.name}
                     </h4>
 
@@ -324,8 +324,8 @@ export default function CoursePickerPage() {
                             onClick={() => toggleCourse(course.code)}
                             className={`group text-left rounded-xl border px-4 py-3 transition-all ${
                               isSelected
-                                ? "border-white/50 bg-white/10"
-                                : "border-white/8 bg-white/3 hover:bg-white/6 hover:border-white/20"
+                                ? "border-[var(--app-border-strong)] bg-[var(--app-surface-strong)]"
+                                : "border-[var(--app-border)] bg-[var(--app-surface)] hover:bg-[var(--app-surface-muted)] hover:border-[var(--app-border-strong)]"
                             }`}
                           >
                             <div className="flex items-start justify-between gap-2">
@@ -333,16 +333,16 @@ export default function CoursePickerPage() {
                                 <p className="text-xs font-mono font-bold mb-1" style={{ color: section.color }}>
                                   {course.code}
                                 </p>
-                                <p className="text-sm text-gray-300 leading-snug line-clamp-2">
+                                <p className="text-sm text-[var(--app-muted-strong)] leading-snug line-clamp-2">
                                   {course.name}
                                 </p>
                               </div>
 
                               <div className={`shrink-0 w-5 h-5 rounded-full border-2 flex items-center justify-center mt-0.5 transition ${
-                                isSelected ? "border-white bg-white" : "border-white/20 group-hover:border-white/50"
+                                isSelected ? "border-[var(--app-text)] bg-[var(--app-text)]" : "border-[var(--app-border-strong)] group-hover:border-[var(--app-text)]"
                               }`}>
                                 {isSelected && (
-                                  <svg className="w-3 h-3 text-black" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <svg className="w-3 h-3 text-[var(--app-bg)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                                   </svg>
                                 )}
@@ -361,10 +361,10 @@ export default function CoursePickerPage() {
       </div>
 
       {selected.size > 0 && (
-        <div className="fixed bottom-0 left-0 right-0 bg-black/95 backdrop-blur border-t border-white/10 px-6 py-4 z-30">
+        <div className="fixed bottom-0 left-0 right-0 bg-[var(--app-nav)] backdrop-blur border-t border-[var(--app-border)] px-6 py-4 z-30">
           <div className="max-w-7xl mx-auto flex items-center justify-between">
-            <p className="text-sm text-gray-400">
-              <span className="text-white font-semibold">
+            <p className="text-sm text-[var(--app-muted)]">
+              <span className="text-[var(--app-text)] font-semibold">
                 {selected.size} course{selected.size !== 1 ? "s" : ""}
               </span>{" "}
               selected
@@ -373,14 +373,14 @@ export default function CoursePickerPage() {
             <div className="flex gap-3">
               <button
                 onClick={() => setSelected(new Set())}
-                className="text-sm text-gray-500 hover:text-white transition px-4 py-2"
+                className="text-sm text-[var(--app-muted)] hover:text-[var(--app-text)] transition px-4 py-2"
               >
                 Clear
               </button>
 
               <button
                 onClick={handleSave}
-                className="bg-white hover:bg-gray-100 text-black text-sm font-semibold px-6 py-2 rounded-xl transition"
+                className="bg-[var(--app-text)] text-[var(--app-bg)] text-sm font-semibold px-6 py-2 rounded-xl transition hover:opacity-90"
               >
                 Save My Courses →
               </button>

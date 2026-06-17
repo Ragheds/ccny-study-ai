@@ -259,24 +259,24 @@ export function AITutor({
   if (courses.length === 0 || !selectedCourse) {
     return (
       <div className="text-center py-20">
-        <p className="text-gray-500 mb-4">Add courses first to use the AI Tutor.</p>
+        <p className="text-[var(--app-muted)] mb-4">Add courses first to use the AI Tutor.</p>
       </div>
     );
   }
 
   return (
     <div className="max-w-7xl mx-auto">
-      <div className="mb-6 rounded-2xl border border-white/10 bg-white/5 p-4">
+      <div className="mb-6 rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface)] p-4 shadow-sm">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <p className="text-xs text-gray-500 uppercase tracking-widest mb-1">Studying for</p>
+            <p className="text-xs text-[var(--app-muted)] uppercase tracking-widest mb-1">Studying for</p>
             <div className="flex flex-wrap items-center gap-2">
-              <span className="font-mono text-sm font-bold text-blue-300">
+              <span className="font-mono text-sm font-bold text-[var(--app-accent)]">
                 {selectedCourse.code}
               </span>
-              <span className="text-white font-semibold">{selectedCourse.name}</span>
+              <span className="text-[var(--app-text)] font-semibold">{selectedCourse.name}</span>
             </div>
-            <p className="text-xs text-gray-500 mt-1">
+            <p className="text-xs text-[var(--app-muted)] mt-1">
               {major.name} · {selectedCourse.section}
             </p>
           </div>
@@ -288,14 +288,14 @@ export function AITutor({
                 onClick={() => chooseCourse(course)}
                 className={`shrink-0 px-3 py-2 rounded-xl border text-left transition ${
                   selectedCourse.code === course.code
-                    ? "border-white bg-white text-black"
-                    : "border-white/10 text-gray-400 hover:text-white hover:border-white/30"
+                    ? "border-[var(--app-text)] bg-[var(--app-text)] text-[var(--app-bg)]"
+                    : "border-[var(--app-border)] text-[var(--app-muted)] hover:text-[var(--app-text)] hover:border-[var(--app-border-strong)]"
                 }`}
               >
                 <span
                   className="block font-mono text-xs font-bold"
                   style={{
-                    color: selectedCourse.code === course.code ? "black" : course.color,
+                    color: selectedCourse.code === course.code ? "var(--app-bg)" : course.color,
                   }}
                 >
                   {course.code}
@@ -308,16 +308,16 @@ export function AITutor({
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[290px_minmax(0,1fr)]">
-        <aside className="rounded-2xl border border-white/10 bg-zinc-950/80 p-3 lg:min-h-[650px]">
+        <aside className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface)] p-3 shadow-sm lg:min-h-[650px]">
           <div className="flex items-center justify-between gap-3 px-2 py-2">
             <div>
-              <p className="text-xs text-gray-500 uppercase tracking-widest">Chats</p>
-              <p className="text-xs text-gray-400 font-mono mt-1">{selectedCourse.code}</p>
+              <p className="text-xs text-[var(--app-muted)] uppercase tracking-widest">Chats</p>
+              <p className="text-xs text-[var(--app-muted-strong)] font-mono mt-1">{selectedCourse.code}</p>
             </div>
 
             <button
               onClick={startNewChat}
-              className="rounded-xl bg-white px-3 py-2 text-xs font-semibold text-black transition hover:bg-gray-100"
+              className="rounded-xl bg-[var(--app-text)] px-3 py-2 text-xs font-semibold text-[var(--app-bg)] transition hover:opacity-90"
             >
               New chat
             </button>
@@ -325,14 +325,14 @@ export function AITutor({
 
           <div className="mt-3 space-y-4">
             {conversationGroups.length === 0 && (
-              <div className="rounded-xl border border-white/10 bg-white/5 p-4 text-sm text-gray-500">
+              <div className="rounded-xl border border-[var(--app-border)] bg-[var(--app-surface-muted)] p-4 text-sm text-[var(--app-muted)]">
                 No conversations for this course yet.
               </div>
             )}
 
             {conversationGroups.map((group) => (
               <div key={group.label}>
-                <p className="px-2 pb-2 text-[11px] font-semibold uppercase tracking-widest text-gray-600">
+                <p className="px-2 pb-2 text-[11px] font-semibold uppercase tracking-widest text-[var(--app-muted)]">
                   {group.label}
                 </p>
 
@@ -346,8 +346,8 @@ export function AITutor({
                         key={conversation.id}
                         className={`rounded-xl border p-2 transition ${
                           isActive
-                            ? "border-white/20 bg-white/10"
-                            : "border-transparent hover:bg-white/5"
+                            ? "border-[var(--app-border-strong)] bg-[var(--app-surface-strong)]"
+                            : "border-transparent hover:bg-[var(--app-surface-muted)]"
                         }`}
                       >
                         {isEditing ? (
@@ -359,13 +359,13 @@ export function AITutor({
                                 if (event.key === "Enter") submitRename();
                                 if (event.key === "Escape") setEditingConversationId(null);
                               }}
-                              className="min-w-0 flex-1 rounded-lg border border-white/15 bg-black px-2 py-1 text-xs text-white outline-none"
+                              className="min-w-0 flex-1 rounded-lg border border-[var(--app-border)] bg-[var(--app-bg)] px-2 py-1 text-xs text-[var(--app-text)] outline-none"
                               autoFocus
                             />
 
                             <button
                               onClick={submitRename}
-                              className="rounded-lg bg-white px-2 py-1 text-xs font-semibold text-black"
+                              className="rounded-lg bg-[var(--app-text)] px-2 py-1 text-xs font-semibold text-[var(--app-bg)]"
                             >
                               Save
                             </button>
@@ -376,10 +376,10 @@ export function AITutor({
                               onClick={() => selectConversation(conversation.id)}
                               className="min-w-0 flex-1 text-left"
                             >
-                              <span className="block truncate text-sm font-medium text-gray-200">
+                              <span className="block truncate text-sm font-medium text-[var(--app-text)]">
                                 {conversation.title}
                               </span>
-                              <span className="block text-[11px] text-gray-600">
+                              <span className="block text-[11px] text-[var(--app-muted)]">
                                 {conversation.messages.length} message
                                 {conversation.messages.length !== 1 ? "s" : ""}
                               </span>
@@ -388,14 +388,14 @@ export function AITutor({
                             <div className="flex shrink-0 gap-1">
                               <button
                                 onClick={() => beginRename(conversation)}
-                                className="rounded-md px-1.5 py-1 text-[11px] text-gray-500 hover:bg-white/10 hover:text-white"
+                                className="rounded-md px-1.5 py-1 text-[11px] text-[var(--app-muted)] hover:bg-[var(--app-surface-muted)] hover:text-[var(--app-text)]"
                               >
                                 Rename
                               </button>
 
                               <button
                                 onClick={() => removeConversation(conversation)}
-                                className="rounded-md px-1.5 py-1 text-[11px] text-gray-500 hover:bg-red-500/10 hover:text-red-300"
+                                className="rounded-md px-1.5 py-1 text-[11px] text-[var(--app-muted)] hover:bg-red-500/10 hover:text-red-500"
                               >
                                 Delete
                               </button>
@@ -415,14 +415,14 @@ export function AITutor({
           <div className="mb-6">
             <button
               onClick={() => setShowUpload((value) => !value)}
-              className="flex items-center gap-2 rounded-xl border border-white/10 px-4 py-2 text-sm text-gray-400 transition hover:border-white/30 hover:text-white"
+              className="flex items-center gap-2 rounded-xl border border-[var(--app-border)] px-4 py-2 text-sm text-[var(--app-muted)] transition hover:border-[var(--app-border-strong)] hover:text-[var(--app-text)]"
             >
               {uploadedText ? "Material uploaded - change" : "Upload lecture notes or material"}
             </button>
 
             {showUpload && (
-              <div className="mt-3 rounded-2xl border border-white/10 bg-white/5 p-4">
-                <p className="mb-3 text-sm text-gray-400">
+              <div className="mt-3 rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface)] p-4 shadow-sm">
+                <p className="mb-3 text-sm text-[var(--app-muted)]">
                   Upload a .txt file or paste course material below.
                 </p>
 
@@ -430,19 +430,19 @@ export function AITutor({
                   type="file"
                   accept=".txt"
                   onChange={handleFileUpload}
-                  className="mb-3 block text-sm text-gray-400"
+                  className="mb-3 block text-sm text-[var(--app-muted)]"
                 />
 
                 <textarea
                   placeholder="Or paste your lecture notes here..."
                   value={uploadedText}
                   onChange={(event) => setUploadedText(event.target.value)}
-                  className="h-32 w-full resize-none rounded-xl border border-white/10 bg-white/5 p-3 text-sm text-white outline-none placeholder:text-gray-600"
+                  className="h-32 w-full resize-none rounded-xl border border-[var(--app-border)] bg-[var(--app-surface-muted)] p-3 text-sm text-[var(--app-text)] outline-none placeholder:text-[var(--app-muted)]"
                 />
 
                 <button
                   onClick={() => setShowUpload(false)}
-                  className="mt-2 text-xs text-gray-500 transition hover:text-white"
+                  className="mt-2 text-xs text-[var(--app-muted)] transition hover:text-[var(--app-text)]"
                 >
                   Done
                 </button>
@@ -458,26 +458,26 @@ export function AITutor({
                 disabled={loading}
                 className={`rounded-2xl border p-4 text-left transition disabled:cursor-not-allowed disabled:opacity-50 ${
                   activeAction === action.id
-                    ? "border-white/40 bg-white/10"
-                    : "border-white/10 bg-white/5 hover:border-white/20 hover:bg-white/10"
+                    ? "border-[var(--app-border-strong)] bg-[var(--app-surface-strong)]"
+                    : "border-[var(--app-border)] bg-[var(--app-surface)] hover:border-[var(--app-border-strong)] hover:bg-[var(--app-surface-muted)]"
                 }`}
               >
                 <p className="mb-1 text-sm font-semibold">{action.label}</p>
-                <p className="text-xs text-gray-500">{action.description}</p>
+                <p className="text-xs text-[var(--app-muted)]">{action.description}</p>
               </button>
             ))}
           </div>
 
           <div className="mb-4 flex items-center justify-between gap-4">
             <div>
-              <p className="text-xs text-gray-500 uppercase tracking-widest">Conversation</p>
-              <h2 className="mt-1 text-lg font-semibold text-white">
+              <p className="text-xs text-[var(--app-muted)] uppercase tracking-widest">Conversation</p>
+              <h2 className="mt-1 text-lg font-semibold text-[var(--app-text)]">
                 {activeConversation?.title ?? "Start a course chat"}
               </h2>
             </div>
 
             {!activeConversation && courseConversations.length > 0 && (
-              <p className="text-right text-xs text-gray-500">
+              <p className="text-right text-xs text-[var(--app-muted)]">
                 Pick a previous chat or start a new one.
               </p>
             )}
@@ -485,7 +485,7 @@ export function AITutor({
 
           <div className="mb-6 min-h-[300px] space-y-4">
             {messages.length === 0 && !loading && (
-              <div className="rounded-2xl border border-white/10 bg-white/5 p-6 text-sm text-gray-400">
+              <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface)] p-6 text-sm text-[var(--app-muted)] shadow-sm">
                 Ask about {selectedCourse.code}, generate a study guide, or continue one of
                 this course&apos;s saved conversations.
               </div>
@@ -499,8 +499,8 @@ export function AITutor({
                 <div
                   className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${
                     message.role === "user"
-                      ? "bg-white text-black"
-                      : "border border-white/10 bg-white/5 text-gray-200"
+                      ? "bg-[var(--app-text)] text-[var(--app-bg)]"
+                      : "border border-[var(--app-border)] bg-[var(--app-surface)] text-[var(--app-text)] shadow-sm"
                   }`}
                 >
                   <pre className="whitespace-pre-wrap font-sans">{message.content}</pre>
@@ -513,15 +513,15 @@ export function AITutor({
 
             {loading && (
               <div className="flex justify-start">
-                <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+                <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface)] px-4 py-3 shadow-sm">
                   <div className="flex gap-1">
-                    <span className="h-2 w-2 animate-bounce rounded-full bg-gray-500" />
+                    <span className="h-2 w-2 animate-bounce rounded-full bg-[var(--app-muted)]" />
                     <span
-                      className="h-2 w-2 animate-bounce rounded-full bg-gray-500"
+                      className="h-2 w-2 animate-bounce rounded-full bg-[var(--app-muted)]"
                       style={{ animationDelay: "150ms" }}
                     />
                     <span
-                      className="h-2 w-2 animate-bounce rounded-full bg-gray-500"
+                      className="h-2 w-2 animate-bounce rounded-full bg-[var(--app-muted)]"
                       style={{ animationDelay: "300ms" }}
                     />
                   </div>
@@ -544,13 +544,13 @@ export function AITutor({
                     void sendMessage();
                   }
                 }}
-                className="min-w-0 flex-1 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none transition placeholder:text-gray-600 focus:border-white/25"
+                className="min-w-0 flex-1 rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface)] px-4 py-3 text-sm text-[var(--app-text)] outline-none transition placeholder:text-[var(--app-muted)] focus:border-[var(--app-border-strong)]"
               />
 
               <button
                 onClick={() => void sendMessage()}
                 disabled={loading || !input.trim()}
-                className="rounded-2xl bg-white px-5 py-3 text-sm font-semibold text-black transition hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-40"
+                className="rounded-2xl bg-[var(--app-text)] px-5 py-3 text-sm font-semibold text-[var(--app-bg)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
               >
                 Send
               </button>
