@@ -5,18 +5,20 @@ type TutorHistoryMessage = {
   content?: string;
 };
 
+type TutorContext = {
+  major?: string;
+  majorCode?: string;
+  school?: string;
+  course?: string;
+  courseCode?: string;
+  courseSection?: string;
+};
+
 type TutorRequestBody = {
   message?: string;
   action?: string;
   history?: TutorHistoryMessage[];
-  context?: {
-    major?: string;
-    majorCode?: string;
-    school?: string;
-    course?: string;
-    courseCode?: string;
-    courseSection?: string;
-  };
+  context?: TutorContext;
   major?: string;
   majorCode?: string;
   school?: string;
@@ -95,6 +97,19 @@ function detectRoute(message: string, action: string): keyof typeof ROUTERS {
   return "fast";
 }
 
+function normalizeTutorContext(body: TutorRequestBody): Required<TutorContext> {
+  const context = body.context ?? {};
+
+  return {
+    major: context.major ?? body.major ?? "CCNY student",
+    majorCode: context.majorCode ?? body.majorCode ?? "Undeclared",
+    school: context.school ?? body.school ?? "The City College of New York",
+    course: context.course ?? body.course ?? "Selected course",
+    courseCode: context.courseCode ?? body.courseCode ?? "Course",
+    courseSection: context.courseSection ?? body.courseSection ?? "Selected school",
+  };
+}
+
 function normalizeHistory(history: TutorHistoryMessage[] | undefined) {
   if (!Array.isArray(history)) return [];
 
@@ -159,16 +174,10 @@ export async function POST(req: NextRequest) {
   try {
     const body = (await req.json()) as TutorRequestBody;
 
-    const context = body.context ?? {};
     const message = body.message ?? "";
     const action = body.action ?? "general";
-
-    const major = context.major ?? body.major ?? "CCNY student";
-    const majorCode = context.majorCode ?? body.majorCode ?? "Undeclared";
-    const school = context.school ?? body.school ?? "The City College of New York";
-    const course = context.course ?? body.course ?? "Selected course";
-    const courseCode = context.courseCode ?? body.courseCode ?? "Course";
-    const courseSection = context.courseSection ?? body.courseSection ?? "Selected school";
+    const { major, majorCode, school, course, courseCode, courseSection } =
+      normalizeTutorContext(body);
 
     const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
 

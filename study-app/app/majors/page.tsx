@@ -42,11 +42,11 @@ export default function MajorsPage() {
     .filter((school) => school.plans.length > 0);
 
   return (
-    <main className="min-h-screen bg-black text-white">
-      <section className="border-b border-white/10 px-6 py-14">
+    <main className="min-h-screen bg-[var(--app-bg)] text-[var(--app-text)]">
+      <section className="border-b border-[var(--app-border)] px-6 py-14">
         <div className="mx-auto grid max-w-7xl gap-10 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-end">
           <div>
-            <p className="mb-4 text-xs font-semibold uppercase tracking-widest text-blue-300">
+            <p className="mb-4 text-xs font-semibold uppercase tracking-widest text-[var(--app-accent)]">
               Academic explorer
             </p>
 
@@ -54,31 +54,31 @@ export default function MajorsPage() {
               Find the CCNY program that matches how you want to study.
             </h1>
 
-            <p className="mt-5 max-w-2xl text-lg leading-relaxed text-gray-400">
+            <p className="mt-5 max-w-2xl text-lg leading-relaxed text-[var(--app-muted)]">
               Browse undergraduate plans by school, degree type, and academic direction before
               building a course-aware AI workspace.
             </p>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
-            <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
+            <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface)] p-5">
               <p className="text-3xl font-bold">{totalPlans}</p>
-              <p className="mt-1 text-sm text-gray-500">Programs</p>
+              <p className="mt-1 text-sm text-[var(--app-muted)]">Programs</p>
             </div>
 
-            <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
+            <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface)] p-5">
               <p className="text-3xl font-bold">{schools.length}</p>
-              <p className="mt-1 text-sm text-gray-500">Schools</p>
+              <p className="mt-1 text-sm text-[var(--app-muted)]">Schools</p>
             </div>
           </div>
         </div>
       </section>
 
-      <section className="sticky top-[65px] z-20 border-b border-white/10 bg-black/95 px-6 py-4 backdrop-blur">
+      <section className="sticky top-[65px] z-20 border-b border-[var(--app-border)] bg-[var(--app-nav)] px-6 py-4 backdrop-blur">
         <div className="mx-auto max-w-7xl">
           <div className="relative">
             <svg
-              className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500"
+              className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--app-muted)]"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
@@ -95,13 +95,13 @@ export default function MajorsPage() {
               placeholder="Search by program, code, or degree type..."
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              className="w-full rounded-2xl border border-white/10 bg-white/5 py-3 pl-11 pr-11 text-sm text-white outline-none transition placeholder:text-gray-600 focus:border-white/25"
+              className="w-full rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface)] py-3 pl-11 pr-11 text-sm text-[var(--app-text)] outline-none transition placeholder:text-[var(--app-muted)] focus:border-[var(--app-border-strong)]"
             />
 
             {query && (
               <button
                 onClick={() => setQuery("")}
-                className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white"
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-[var(--app-muted)] hover:text-[var(--app-text)]"
               >
                 ✕
               </button>
@@ -112,7 +112,7 @@ export default function MajorsPage() {
 
       <section className="mx-auto max-w-7xl px-6 py-10">
         {filtered.length === 0 && (
-          <div className="rounded-2xl border border-white/10 bg-white/5 p-10 text-center text-gray-500">
+          <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface)] p-10 text-center text-[var(--app-muted)]">
             No academic plans found for &ldquo;{query}&rdquo;.
           </div>
         )}
@@ -130,7 +130,7 @@ export default function MajorsPage() {
 
                     <div>
                       <h2 className="text-2xl font-bold">{school.name}</h2>
-                      <p className="mt-1 text-sm text-gray-500">
+                      <p className="mt-1 text-sm text-[var(--app-muted)]">
                         {school.plans.length} matching program
                         {school.plans.length !== 1 ? "s" : ""}
                       </p>
@@ -138,7 +138,7 @@ export default function MajorsPage() {
                   </div>
                 </div>
 
-                <p className="max-w-md text-sm leading-relaxed text-gray-500">
+                <p className="max-w-md text-sm leading-relaxed text-[var(--app-muted)]">
                   Choose a plan to connect major context with the CCNY course catalog.
                 </p>
               </div>
@@ -148,7 +148,7 @@ export default function MajorsPage() {
                   <Link
                     key={`${school.name}-${plan.code}`}
                     href={`/dashboard/${plan.code}`}
-                    className="group block rounded-2xl border border-white/10 bg-white/5 p-5 transition hover:-translate-y-0.5 hover:border-white/25 hover:bg-white/10"
+                    className="group block rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface)] p-5 transition hover:-translate-y-0.5 hover:border-[var(--app-border-strong)] hover:bg-[var(--app-surface-muted)]"
                   >
                     <div className="mb-4 flex items-start justify-between gap-3">
                       <span
@@ -161,16 +161,16 @@ export default function MajorsPage() {
                         {getDegreeCode(plan.code)}
                       </span>
 
-                      <span className="font-mono text-xs text-gray-600 group-hover:text-gray-400">
+                      <span className="font-mono text-xs text-[var(--app-muted)] group-hover:text-[var(--app-muted-strong)]">
                         {plan.code}
                       </span>
                     </div>
 
-                    <h3 className="text-lg font-semibold leading-snug text-white">
+                    <h3 className="text-lg font-semibold leading-snug text-[var(--app-text)]">
                       {plan.name}
                     </h3>
 
-                    <p className="mt-4 text-sm text-gray-500 group-hover:text-gray-400">
+                    <p className="mt-4 text-sm text-[var(--app-muted)] group-hover:text-[var(--app-muted-strong)]">
                       Select major and continue to course planning →
                     </p>
                   </Link>
