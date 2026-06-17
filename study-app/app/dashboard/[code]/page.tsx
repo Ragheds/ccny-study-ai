@@ -1,13 +1,15 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";import Link from "next/link";
+import { useState, useMemo, useEffect } from "react";
+import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { schools } from "../../../data/ccny";
 import catalog from "../../../data/catalog.json";
+import { saveToStorage, loadFromStorage, KEYS } from "@/lib/storage";
 
-type Course = { code: string; name: string; };
-type Department = { name: string; prefix: string; courses: Course[]; };
-type CatalogSection = { section: string; color: string; departments: Department[]; };
+type Course = { code: string; name: string };
+type Department = { name: string; prefix: string; courses: Course[] };
+type CatalogSection = { section: string; color: string; departments: Department[] };
 
 const typedCatalog = catalog as CatalogSection[];
 
@@ -95,15 +97,6 @@ export default function CoursePickerPage() {
   const [activeSection, setActiveSection] = useState<string | null>(null);
   const [showFilters, setShowFilters] = useState(false);
 
-useEffect(() => {
-  const savedCourses = localStorage.getItem("ccny_courses");
-  if (savedCourses) {
-    const parsed = JSON.parse(savedCourses);
-    const codes = new Set<string>(parsed.map((c: { code: string }) => c.code));
-    setSelected(codes);
-  }
-}, []);
-
   const major = useMemo(() => {
     for (const school of schools) {
       const plan = school.plans.find((p) => p.code === code);
@@ -111,6 +104,14 @@ useEffect(() => {
     }
     return null;
   }, [code]);
+
+  // Load previously saved courses on mount
+  useEffect(() => {
+    const savedCourses = loadFromStorage<{ code: string }[]>(KEYS.COURSES, []);
+    if (savedCourses.length > 0) {
+      setSelected(new Set(savedCourses.map((c) => c.code)));
+    }
+  }, []);
 
   const preferredSection = MAJOR_TO_SECTION[code] ?? null;
 
@@ -155,7 +156,6 @@ useEffect(() => {
   const handleSave = () => {
     if (!major) return;
 
-    // Build selected course objects with full info
     const selectedCourses: { code: string; name: string; section: string; color: string }[] = [];
     for (const section of typedCatalog) {
       for (const dept of section.departments) {
@@ -172,8 +172,8 @@ useEffect(() => {
       }
     }
 
-    localStorage.setItem("ccny_major", JSON.stringify({ code: major.code, name: major.name, school: major.school }));
-    localStorage.setItem("ccny_courses", JSON.stringify(selectedCourses));
+    saveToStorage(KEYS.MAJOR, { code: major.code, name: major.name, school: major.school });
+    saveToStorage(KEYS.COURSES, selectedCourses);
     router.push("/dashboard");
   };
 
@@ -192,7 +192,7 @@ useEffect(() => {
     <main className="min-h-screen bg-black text-white">
 
       {/* Header */}
-      <div className="border-b border-white/10 bg-black/90 backdrop-blur sticky top-0 z-20">
+      <div className="border-b border-white/10 bg-black/90 backdrop-blur sticky top-[65px] z-20">
         <div className="max-w-7xl mx-auto px-6 py-4">
           <div className="flex items-center gap-3 mb-3">
             <Link href="/majors" className="text-gray-500 hover:text-white transition text-sm">← Majors</Link>
@@ -231,7 +231,7 @@ useEffect(() => {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
           </svg>
           <input
-            placeholder="Search by code or name... (e.g. CSC 10300, Calculus)"
+            placeholder="Search by code or name..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="w-full bg-white/5 border border-white/10 rounded-2xl pl-11 pr-10 py-3 outline-none focus:border-white/25 transition text-sm placeholder:text-gray-600"
@@ -248,9 +248,9 @@ useEffect(() => {
             className="flex items-center gap-2 text-sm text-gray-400 hover:text-white transition mb-3"
           >
             <div className="flex flex-col gap-1">
-              <span className="block w-4 h-0.5 bg-current"></span>
-              <span className="block w-4 h-0.5 bg-current"></span>
-              <span className="block w-4 h-0.5 bg-current"></span>
+              <span className="block w-4 h-0.5 bg-current" />
+              <span className="block w-4 h-0.5 bg-current" />
+              <span className="block w-4 h-0.5 bg-current" />
             </div>
             <span>Filter by School</span>
           </button>
@@ -333,7 +333,7 @@ useEffect(() => {
                     </div>
                   </div>
                 ))}
-        </div>
+              </div>
             </div>
           ))}
         </div>
@@ -344,7 +344,7 @@ useEffect(() => {
         <div className="fixed bottom-0 left-0 right-0 bg-black/95 backdrop-blur border-t border-white/10 px-6 py-4 z-30">
           <div className="max-w-7xl mx-auto flex items-center justify-between">
             <p className="text-sm text-gray-400">
-              <span className="text-white font-semibold">{selected.size} course{selected.size !== 1 ? "s" : ""}</span> selected for {major.name}
+              <span className="text-white font-semibold">{selected.size} course{selected.size !== 1 ? "s" : ""}</span> selected
             </p>
             <div className="flex gap-3">
               <button onClick={() => setSelected(new Set())} className="text-sm text-gray-500 hover:text-white transition px-4 py-2">

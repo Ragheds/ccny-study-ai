@@ -1,30 +1,23 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
+import { saveToStorage, loadFromStorage, KEYS } from "@/lib/storage";
 
-type Course = {
-  code: string;
-  name: string;
-  section: string;
-  color: string;
-};
-
-type Major = {
-  code: string;
-  name: string;
-  school: string;
-};
+type Course = { code: string; name: string; section: string; color: string };
+type Major = { code: string; name: string; school: string };
 
 type Message = {
+  id: string;
   role: "user" | "ai";
   content: string;
+  timestamp: number;
   action?: string;
 };
 
 const ACTIONS = [
   { id: "studyguide", label: "📝 Study Guide", description: "Get a full summary" },
   { id: "quiz", label: "❓ Quiz Me", description: "5 practice questions" },
-  { id: "flashcards", label: "🃏 Flashcards", description: "Key concepts to review" },
+  { id: "flashcards", label: "🎴 Flashcards", description: "Key concepts to review" },
   { id: "explain", label: "💬 Ask a Question", description: "Get a specific answer" },
 ];
 
@@ -38,13 +31,44 @@ export function AITutor({ major, courses }: { major: Major; courses: Course[] })
   const [loading, setLoading] = useState(false);
   const [uploadedText, setUploadedText] = useState("");
   const [showUpload, setShowUpload] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Load chat history from localStorage on mount
+  useEffect(() => {
+    const saved = loadFromStorage<Message[]>(KEYS.CHAT_HISTORY, []);
+    if (saved.length > 0) setMessages(saved);
+  }, []);
+
+  // Save chat history whenever messages change
+  useEffect(() => {
+    if (messages.length > 0) {
+      saveToStorage(KEYS.CHAT_HISTORY, messages);
+    }
+  }, [messages]);
+
+  // Auto scroll to bottom
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+
+  const clearHistory = () => {
+    setMessages([]);
+    saveToStorage(KEYS.CHAT_HISTORY, []);
+  };
 
   const sendMessage = async (overrideMessage?: string, action?: string) => {
     if (!selectedCourse) return;
     const message = overrideMessage || input.trim();
     if (!message) return;
 
-    const userMessage: Message = { role: "user", content: message, action };
+    const userMessage: Message = {
+      id: Date.now().toString(),
+      role: "user",
+      content: message,
+      timestamp: Date.now(),
+      action,
+    };
+
     setMessages((prev) => [...prev, userMessage]);
     setInput("");
     setLoading(true);
@@ -54,7 +78,9 @@ export function AITutor({ major, courses }: { major: Major; courses: Course[] })
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          message: uploadedText ? `Based on these materials:\n\n${uploadedText}\n\n${message}` : message,
+          message: uploadedText
+            ? `Based on these materials:\n\n${uploadedText}\n\n${message}`
+            : message,
           major: major.name,
           majorCode: major.code,
           school: major.school,
@@ -65,14 +91,22 @@ export function AITutor({ major, courses }: { major: Major; courses: Course[] })
       });
 
       const data = await res.json();
-      setMessages((prev) => [
-        ...prev,
-        { role: "ai", content: data.response || "Something went wrong." },
-      ]);
+      const aiMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        role: "ai",
+        content: data.response || "Something went wrong.",
+        timestamp: Date.now(),
+      };
+      setMessages((prev) => [...prev, aiMessage]);
     } catch {
       setMessages((prev) => [
         ...prev,
-        { role: "ai", content: "Failed to get a response. Please try again." },
+        {
+          id: (Date.now() + 1).toString(),
+          role: "ai",
+          content: "Failed to get a response. Please try again.",
+          timestamp: Date.now(),
+        },
       ]);
     } finally {
       setLoading(false);
@@ -121,7 +155,6 @@ export function AITutor({ major, courses }: { major: Major; courses: Course[] })
               key={course.code}
               onClick={() => {
                 setSelectedCourse(course);
-                setMessages([]);
                 setActiveAction(null);
               }}
               className={`px-4 py-2 rounded-xl border text-sm font-medium transition ${
@@ -130,7 +163,12 @@ export function AITutor({ major, courses }: { major: Major; courses: Course[] })
                   : "border-white/10 text-gray-400 hover:text-white hover:border-white/30"
               }`}
             >
-              <span className="font-mono text-xs mr-2" style={{ color: selectedCourse?.code === course.code ? "black" : course.color }}>
+              <span
+                className="font-mono text-xs mr-2"
+                style={{
+                  color: selectedCourse?.code === course.code ? "black" : course.color,
+                }}
+              >
                 {course.code}
               </span>
               {course.name}
@@ -148,12 +186,11 @@ export function AITutor({ major, courses }: { major: Major; courses: Course[] })
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
           </svg>
-          {uploadedText ? "✓ Material uploaded — change file" : "Upload lecture notes or material"}
+          {uploadedText ? "✓ Material uploaded — change" : "Upload lecture notes or material"}
         </button>
-
         {showUpload && (
           <div className="mt-3 p-4 border border-white/10 rounded-2xl bg-white/3">
-            <p className="text-sm text-gray-400 mb-3">Upload a text file (.txt) or paste your notes below:</p>
+            <p className="text-sm text-gray-400 mb-3">Upload a .txt file or paste notes below:</p>
             <input
               type="file"
               accept=".txt"
@@ -161,15 +198,12 @@ export function AITutor({ major, courses }: { major: Major; courses: Course[] })
               className="text-sm text-gray-400 mb-3 block"
             />
             <textarea
-              placeholder="Or paste your lecture notes, slides, or any text here..."
+              placeholder="Or paste your lecture notes here..."
               value={uploadedText}
               onChange={(e) => setUploadedText(e.target.value)}
               className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-sm text-white placeholder:text-gray-600 outline-none resize-none h-32"
             />
-            <button
-              onClick={() => setShowUpload(false)}
-              className="mt-2 text-xs text-gray-500 hover:text-white transition"
-            >
+            <button onClick={() => setShowUpload(false)} className="mt-2 text-xs text-gray-500 hover:text-white transition">
               Done
             </button>
           </div>
@@ -194,33 +228,53 @@ export function AITutor({ major, courses }: { major: Major; courses: Course[] })
         ))}
       </div>
 
-      {/* Messages */}
+      {/* Chat history header */}
       {messages.length > 0 && (
-        <div className="space-y-4 mb-6">
-          {messages.map((msg, i) => (
-            <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
-              <div className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${
+        <div className="flex items-center justify-between mb-4">
+          <p className="text-xs text-gray-500 uppercase tracking-widest">Conversation</p>
+          <button
+            onClick={clearHistory}
+            className="text-xs text-gray-600 hover:text-red-400 transition"
+          >
+            Clear conversation
+          </button>
+        </div>
+      )}
+
+      {/* Messages */}
+      <div className="space-y-4 mb-6">
+        {messages.map((msg) => (
+          <div
+            key={msg.id}
+            className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
+          >
+            <div
+              className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${
                 msg.role === "user"
                   ? "bg-white text-black"
                   : "bg-white/5 border border-white/10 text-gray-200"
-              }`}>
-                <pre className="whitespace-pre-wrap font-sans">{msg.content}</pre>
+              }`}
+            >
+              <pre className="whitespace-pre-wrap font-sans">{msg.content}</pre>
+              <p className="text-xs opacity-40 mt-2">
+                {new Date(msg.timestamp).toLocaleTimeString()}
+              </p>
+            </div>
+          </div>
+        ))}
+        {loading && (
+          <div className="flex justify-start">
+            <div className="bg-white/5 border border-white/10 rounded-2xl px-4 py-3">
+              <div className="flex gap-1">
+                <span className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
+                <span className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
+                <span className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
               </div>
             </div>
-          ))}
-          {loading && (
-            <div className="flex justify-start">
-              <div className="bg-white/5 border border-white/10 rounded-2xl px-4 py-3">
-                <div className="flex gap-1">
-                  <span className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
-                  <span className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
-                  <span className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
+          </div>
+        )}
+        <div ref={messagesEndRef} />
+      </div>
 
       {/* Input */}
       {(activeAction === "explain" || activeAction === null) && (
