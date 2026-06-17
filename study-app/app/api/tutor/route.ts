@@ -1,6 +1,29 @@
 import { NextRequest, NextResponse } from "next/server";
 
-// ─── Smart Model Router ────────────────────────────────────────────────────────
+type TutorHistoryMessage = {
+  role?: "user" | "ai" | "assistant";
+  content?: string;
+};
+
+type TutorRequestBody = {
+  message?: string;
+  action?: string;
+  history?: TutorHistoryMessage[];
+  context?: {
+    major?: string;
+    majorCode?: string;
+    school?: string;
+    course?: string;
+    courseCode?: string;
+    courseSection?: string;
+  };
+  major?: string;
+  majorCode?: string;
+  school?: string;
+  course?: string;
+  courseCode?: string;
+  courseSection?: string;
+};
 
 const ROUTERS = {
   code: [
@@ -21,25 +44,69 @@ function detectRoute(message: string, action: string): keyof typeof ROUTERS {
   const lower = message.toLowerCase();
 
   const codeKeywords = [
-    "code", "error", "debug", "bug", "syntax", "function",
-    "compile", "runtime", "exception", "stack trace", "not working",
-    "fix this", "segfault", "python", "java", "c++", "javascript",
-    "typescript", "algorithm",
+    "code",
+    "error",
+    "debug",
+    "bug",
+    "syntax",
+    "function",
+    "compile",
+    "runtime",
+    "exception",
+    "stack trace",
+    "not working",
+    "fix this",
+    "segfault",
+    "python",
+    "java",
+    "c++",
+    "javascript",
+    "typescript",
+    "algorithm",
   ];
-  if (codeKeywords.some((k) => lower.includes(k))) return "code";
+
+  if (codeKeywords.some((keyword) => lower.includes(keyword))) return "code";
 
   const reasoningKeywords = [
-    "math", "calculus", "proof", "equation", "theorem", "derive",
-    "integral", "derivative", "statistics", "probability", "logic",
-    "physics", "chemistry", "formula", "solve", "calculate",
+    "math",
+    "calculus",
+    "proof",
+    "equation",
+    "theorem",
+    "derive",
+    "integral",
+    "derivative",
+    "statistics",
+    "probability",
+    "logic",
+    "physics",
+    "chemistry",
+    "formula",
+    "solve",
+    "calculate",
   ];
-  if (reasoningKeywords.some((k) => lower.includes(k))) return "reasoning";
+
+  if (reasoningKeywords.some((keyword) => lower.includes(keyword))) return "reasoning";
 
   if (["quiz", "flashcards", "studyguide"].includes(action)) return "reasoning";
 
   if (message.length > 300) return "reasoning";
 
   return "fast";
+}
+
+function normalizeHistory(history: TutorHistoryMessage[] | undefined) {
+  if (!Array.isArray(history)) return [];
+
+  return history
+    .filter((message) => message.content?.trim())
+    .slice(-8)
+    .map((message) => ({
+      role: message.role === "ai" || message.role === "assistant"
+        ? "assistant" as const
+        : "user" as const,
+      content: message.content ?? "",
+    }));
 }
 
 async function tryModels(
@@ -71,14 +138,14 @@ async function tryModels(
       }
 
       const text = data?.choices?.[0]?.message?.content;
+
       if (!text) {
         console.warn(`Model ${model} returned empty — trying next...`);
         continue;
       }
 
-      console.log(`✓ Used model: ${model}`);
+      console.log(`Used model: ${model}`);
       return { text, model };
-
     } catch (err) {
       console.warn(`Model ${model} threw error — trying next...`, err);
       continue;
@@ -88,21 +155,23 @@ async function tryModels(
   throw new Error(`All models failed. Last error: ${lastError}`);
 }
 
-// ─── API Route ────────────────────────────────────────────────────────────────
-
 export async function POST(req: NextRequest) {
   try {
-    const {
-      message,
-      major,
-      majorCode,
-      school,
-      course,
-      courseCode,
-      action,
-    } = await req.json();
+    const body = (await req.json()) as TutorRequestBody;
+
+    const context = body.context ?? {};
+    const message = body.message ?? "";
+    const action = body.action ?? "general";
+
+    const major = context.major ?? body.major ?? "CCNY student";
+    const majorCode = context.majorCode ?? body.majorCode ?? "Undeclared";
+    const school = context.school ?? body.school ?? "The City College of New York";
+    const course = context.course ?? body.course ?? "Selected course";
+    const courseCode = context.courseCode ?? body.courseCode ?? "Course";
+    const courseSection = context.courseSection ?? body.courseSection ?? "Selected school";
 
     const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
+
     if (!OPENROUTER_API_KEY) {
       return NextResponse.json({ error: "Missing API key" }, { status: 500 });
     }
@@ -113,11 +182,13 @@ Student context:
 - Major: ${major} (${majorCode})
 - School: ${school}
 - Current course: ${course} (${courseCode})
+- Course school/section: ${courseSection}
 
 Your job is to help this student with their coursework. Keep answers:
 - Specific to their course level and major at CCNY
 - Clear, structured, and easy to understand
 - Focused on what a CCNY student would need to know
+- Aware of the current course, its school/section, and the prior chat messages when provided
 - Concise but complete
 
 ${action === "quiz" ? `Generate a 5-question multiple choice quiz about ${course}.
@@ -141,12 +212,14 @@ Make it specific for a ${major} student at ${school}.` : ""}`.trim();
 
     const routeKey = detectRoute(message, action);
     const models = ROUTERS[routeKey];
+    const historyMessages = normalizeHistory(body.history);
 
     console.log(`Route: ${routeKey} | Trying: ${models.join(", ")}`);
 
     const requestBody = {
       messages: [
         { role: "system", content: systemPrompt },
+        ...historyMessages,
         { role: "user", content: message },
       ],
       max_tokens: action === "studyguide" ? 2048 : 1024,
@@ -156,7 +229,6 @@ Make it specific for a ${major} student at ${school}.` : ""}`.trim();
     const { text, model } = await tryModels(models, requestBody, OPENROUTER_API_KEY);
 
     return NextResponse.json({ response: text, model, route: routeKey });
-
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Internal server error";
     console.error("Tutor API error:", message);

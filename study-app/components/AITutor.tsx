@@ -1,75 +1,187 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
-import { saveToStorage, loadFromStorage, KEYS } from "@/lib/storage";
+import { ChangeEvent, useEffect, useRef, useState } from "react";
+import { useHydrated, useStoredValue } from "@/hooks/useStoredValue";
+import {
+  addConversation,
+  appendMessagesToConversation,
+  ChatConversation,
+  ChatMessage,
+  closeInactiveConversation,
+  createChatMessage,
+  createConversation,
+  deleteConversation,
+  EMPTY_CHAT_WORKSPACE,
+  ensureConversationForMessage,
+  getCourseConversations,
+  groupConversationsByDate,
+  migrateLegacyChatHistory,
+  renameConversation,
+  SavedCourse,
+  SavedMajor,
+  touchConversation,
+} from "@/lib/chatWorkspace";
+import { KEYS } from "@/lib/storage";
 
-type Course = { code: string; name: string; section: string; color: string };
-type Major = { code: string; name: string; school: string };
-
-type Message = {
-  id: string;
-  role: "user" | "ai";
-  content: string;
-  timestamp: number;
-  action?: string;
-};
+const EMPTY_MESSAGES: ChatMessage[] = [];
 
 const ACTIONS = [
-  { id: "studyguide", label: "📝 Study Guide", description: "Get a full summary" },
-  { id: "quiz", label: "❓ Quiz Me", description: "5 practice questions" },
-  { id: "flashcards", label: "🎴 Flashcards", description: "Key concepts to review" },
-  { id: "explain", label: "💬 Ask a Question", description: "Get a specific answer" },
+  { id: "studyguide", label: "Study Guide", description: "Generate a structured review" },
+  { id: "quiz", label: "Quiz Me", description: "Create 5 practice questions" },
+  { id: "flashcards", label: "Flashcards", description: "Build terms and definitions" },
+  { id: "explain", label: "Ask a Question", description: "Get a focused explanation" },
 ];
 
-export function AITutor({ major, courses }: { major: Major; courses: Course[] }) {
-  const [selectedCourse, setSelectedCourse] = useState<Course | null>(
-    courses.length > 0 ? courses[0] : null
-  );
+type AITutorProps = {
+  major: SavedMajor;
+  courses: SavedCourse[];
+  activeCourseCode?: string | null;
+  onActiveCourseChange?: (courseCode: string) => void;
+};
+
+function formatMessageTime(timestamp: number): string {
+  return new Date(timestamp).toLocaleTimeString([], {
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
+function getPromptForAction(actionId: string, course: SavedCourse): string {
+  const prompts: Record<string, string> = {
+    studyguide: `Generate a study guide for ${course.name} (${course.code})`,
+    quiz: `Generate a 5-question quiz for ${course.name} (${course.code})`,
+    flashcards: `Generate flashcards for ${course.name} (${course.code})`,
+  };
+
+  return prompts[actionId] ?? "";
+}
+
+export function AITutor({
+  major,
+  courses,
+  activeCourseCode,
+  onActiveCourseChange,
+}: AITutorProps) {
+  const hydrated = useHydrated();
+  const [workspace, setWorkspace] = useStoredValue(KEYS.CHAT_WORKSPACE, EMPTY_CHAT_WORKSPACE);
+  const [legacyMessages] = useStoredValue(KEYS.CHAT_HISTORY, EMPTY_MESSAGES);
+  const [selectedCourseCode, setSelectedCourseCode] = useState(() => {
+    const requestedCourse = courses.find((course) => course.code === activeCourseCode);
+    return requestedCourse?.code ?? courses[0]?.code ?? "";
+  });
   const [activeAction, setActiveAction] = useState<string | null>(null);
   const [input, setInput] = useState("");
-  const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(false);
   const [uploadedText, setUploadedText] = useState("");
   const [showUpload, setShowUpload] = useState(false);
+  const [editingConversationId, setEditingConversationId] = useState<string | null>(null);
+  const [editingTitle, setEditingTitle] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Load chat history from localStorage on mount
-  useEffect(() => {
-    const saved = loadFromStorage<Message[]>(KEYS.CHAT_HISTORY, []);
-    if (saved.length > 0) setMessages(saved);
-  }, []);
+  const selectedCourse =
+    courses.find((course) => course.code === selectedCourseCode) ?? courses[0] ?? null;
+  const courseConversations = selectedCourse
+    ? getCourseConversations(workspace, selectedCourse.code)
+    : [];
+  const activeConversationId = selectedCourse
+    ? workspace.activeByCourse[selectedCourse.code]
+    : undefined;
+  const activeConversation = activeConversationId
+    ? workspace.conversationsById[activeConversationId]
+    : undefined;
+  const messages = activeConversation?.messages ?? EMPTY_MESSAGES;
+  const conversationGroups = groupConversationsByDate(courseConversations);
 
-  // Save chat history whenever messages change
   useEffect(() => {
-    if (messages.length > 0) {
-      saveToStorage(KEYS.CHAT_HISTORY, messages);
-    }
-  }, [messages]);
+    if (!hydrated) return;
+    const migrated = migrateLegacyChatHistory(workspace, legacyMessages, courses, major);
+    if (migrated !== workspace) setWorkspace(migrated);
+  }, [courses, hydrated, legacyMessages, major, setWorkspace, workspace]);
 
-  // Auto scroll to bottom
+  useEffect(() => {
+    if (!hydrated || !selectedCourse) return;
+    const closed = closeInactiveConversation(workspace, selectedCourse.code);
+    if (closed !== workspace) setWorkspace(closed);
+  }, [hydrated, selectedCourse, setWorkspace, workspace]);
+
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  const clearHistory = () => {
-    setMessages([]);
-    saveToStorage(KEYS.CHAT_HISTORY, []);
+  const chooseCourse = (course: SavedCourse) => {
+    setSelectedCourseCode(course.code);
+    setActiveAction(null);
+    setInput("");
+    onActiveCourseChange?.(course.code);
+  };
+
+  const startNewChat = () => {
+    if (!selectedCourse) return;
+    const conversation = createConversation(selectedCourse, major);
+    setWorkspace((current) => addConversation(current, conversation));
+    setActiveAction(null);
+    setInput("");
+  };
+
+  const selectConversation = (conversationId: string) => {
+    setWorkspace((current) => touchConversation(current, conversationId));
+    setActiveAction(null);
+    setInput("");
+  };
+
+  const beginRename = (conversation: ChatConversation) => {
+    setEditingConversationId(conversation.id);
+    setEditingTitle(conversation.title);
+  };
+
+  const submitRename = () => {
+    if (!editingConversationId) return;
+    setWorkspace((current) => renameConversation(current, editingConversationId, editingTitle));
+    setEditingConversationId(null);
+    setEditingTitle("");
+  };
+
+  const removeConversation = (conversation: ChatConversation) => {
+    if (
+      typeof window !== "undefined" &&
+      !window.confirm(`Delete "${conversation.title}"? Messages in this chat will be removed.`)
+    ) {
+      return;
+    }
+
+    setWorkspace((current) => deleteConversation(current, conversation.id));
+
+    if (editingConversationId === conversation.id) {
+      setEditingConversationId(null);
+      setEditingTitle("");
+    }
   };
 
   const sendMessage = async (overrideMessage?: string, action?: string) => {
-    if (!selectedCourse) return;
-    const message = overrideMessage || input.trim();
+    if (!selectedCourse || loading) return;
+
+    const message = (overrideMessage ?? input).trim();
     if (!message) return;
 
-    const userMessage: Message = {
-      id: Date.now().toString(),
-      role: "user",
-      content: message,
-      timestamp: Date.now(),
-      action,
-    };
+    const withConversation = ensureConversationForMessage(
+      workspace,
+      selectedCourse,
+      major,
+      message
+    );
 
-    setMessages((prev) => [...prev, userMessage]);
+    const previousMessages =
+      withConversation.workspace.conversationsById[withConversation.conversationId]?.messages ??
+      EMPTY_MESSAGES;
+
+    const userMessage = createChatMessage("user", message, action);
+    const workspaceWithUser = appendMessagesToConversation(
+      withConversation.workspace,
+      withConversation.conversationId,
+      [userMessage]
+    );
+
+    setWorkspace(workspaceWithUser);
     setInput("");
     setLoading(true);
 
@@ -81,33 +193,42 @@ export function AITutor({ major, courses }: { major: Major; courses: Course[] })
           message: uploadedText
             ? `Based on these materials:\n\n${uploadedText}\n\n${message}`
             : message,
-          major: major.name,
-          majorCode: major.code,
-          school: major.school,
-          course: selectedCourse.name,
-          courseCode: selectedCourse.code,
-          action: action || "general",
+          action: action ?? "general",
+          context: {
+            major: major.name,
+            majorCode: major.code,
+            school: major.school,
+            course: selectedCourse.name,
+            courseCode: selectedCourse.code,
+            courseSection: selectedCourse.section,
+          },
+          history: previousMessages.slice(-8),
         }),
       });
 
       const data = await res.json();
-      const aiMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        role: "ai",
-        content: data.response || "Something went wrong.",
-        timestamp: Date.now(),
-      };
-      setMessages((prev) => [...prev, aiMessage]);
+
+      if (!res.ok) {
+        throw new Error(data.error ?? "Failed to get a response.");
+      }
+
+      const aiMessage = createChatMessage(
+        "ai",
+        data.response || "Something went wrong."
+      );
+
+      setWorkspace((current) =>
+        appendMessagesToConversation(current, withConversation.conversationId, [aiMessage])
+      );
     } catch {
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: (Date.now() + 1).toString(),
-          role: "ai",
-          content: "Failed to get a response. Please try again.",
-          timestamp: Date.now(),
-        },
-      ]);
+      const errorMessage = createChatMessage(
+        "ai",
+        "Failed to get a response. Please try again."
+      );
+
+      setWorkspace((current) =>
+        appendMessagesToConversation(current, withConversation.conversationId, [errorMessage])
+      );
     } finally {
       setLoading(false);
     }
@@ -115,27 +236,27 @@ export function AITutor({ major, courses }: { major: Major; courses: Course[] })
 
   const handleAction = (actionId: string) => {
     setActiveAction(actionId);
-    if (actionId === "explain") return;
-    const prompts: Record<string, string> = {
-      studyguide: `Generate a study guide for ${selectedCourse?.name} (${selectedCourse?.code})`,
-      quiz: `Generate a 5-question quiz for ${selectedCourse?.name} (${selectedCourse?.code})`,
-      flashcards: `Generate flashcards for ${selectedCourse?.name} (${selectedCourse?.code})`,
-    };
-    sendMessage(prompts[actionId], actionId);
+    if (!selectedCourse || actionId === "explain") return;
+    void sendMessage(getPromptForAction(actionId, selectedCourse), actionId);
   };
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
+  const handleFileUpload = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
     if (!file) return;
+
     const reader = new FileReader();
-    reader.onload = (ev) => {
-      setUploadedText(ev.target?.result as string);
+    reader.onload = (readerEvent) => {
+      setUploadedText(readerEvent.target?.result as string);
       setShowUpload(false);
     };
     reader.readAsText(file);
   };
 
-  if (courses.length === 0) {
+  if (!hydrated) {
+    return <div className="min-h-[360px]" />;
+  }
+
+  if (courses.length === 0 || !selectedCourse) {
     return (
       <div className="text-center py-20">
         <p className="text-gray-500 mb-4">Add courses first to use the AI Tutor.</p>
@@ -144,158 +265,299 @@ export function AITutor({ major, courses }: { major: Major; courses: Course[] })
   }
 
   return (
-    <div className="max-w-4xl mx-auto">
-
-      {/* Course selector */}
-      <div className="mb-6">
-        <p className="text-xs text-gray-500 uppercase tracking-widest mb-2">Studying for</p>
-        <div className="flex gap-2 flex-wrap">
-          {courses.map((course) => (
-            <button
-              key={course.code}
-              onClick={() => {
-                setSelectedCourse(course);
-                setActiveAction(null);
-              }}
-              className={`px-4 py-2 rounded-xl border text-sm font-medium transition ${
-                selectedCourse?.code === course.code
-                  ? "border-white bg-white text-black"
-                  : "border-white/10 text-gray-400 hover:text-white hover:border-white/30"
-              }`}
-            >
-              <span
-                className="font-mono text-xs mr-2"
-                style={{
-                  color: selectedCourse?.code === course.code ? "black" : course.color,
-                }}
-              >
-                {course.code}
+    <div className="max-w-7xl mx-auto">
+      <div className="mb-6 rounded-2xl border border-white/10 bg-white/5 p-4">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <p className="text-xs text-gray-500 uppercase tracking-widest mb-1">Studying for</p>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="font-mono text-sm font-bold text-blue-300">
+                {selectedCourse.code}
               </span>
-              {course.name}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Upload material */}
-      <div className="mb-6">
-        <button
-          onClick={() => setShowUpload((v) => !v)}
-          className="flex items-center gap-2 text-sm text-gray-400 hover:text-white transition border border-white/10 hover:border-white/30 px-4 py-2 rounded-xl"
-        >
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-          </svg>
-          {uploadedText ? "✓ Material uploaded — change" : "Upload lecture notes or material"}
-        </button>
-        {showUpload && (
-          <div className="mt-3 p-4 border border-white/10 rounded-2xl bg-white/3">
-            <p className="text-sm text-gray-400 mb-3">Upload a .txt file or paste notes below:</p>
-            <input
-              type="file"
-              accept=".txt"
-              onChange={handleFileUpload}
-              className="text-sm text-gray-400 mb-3 block"
-            />
-            <textarea
-              placeholder="Or paste your lecture notes here..."
-              value={uploadedText}
-              onChange={(e) => setUploadedText(e.target.value)}
-              className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-sm text-white placeholder:text-gray-600 outline-none resize-none h-32"
-            />
-            <button onClick={() => setShowUpload(false)} className="mt-2 text-xs text-gray-500 hover:text-white transition">
-              Done
-            </button>
+              <span className="text-white font-semibold">{selectedCourse.name}</span>
+            </div>
+            <p className="text-xs text-gray-500 mt-1">
+              {major.name} · {selectedCourse.section}
+            </p>
           </div>
-        )}
-      </div>
 
-      {/* Action buttons */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-8">
-        {ACTIONS.map((action) => (
-          <button
-            key={action.id}
-            onClick={() => handleAction(action.id)}
-            className={`p-4 rounded-2xl border text-left transition ${
-              activeAction === action.id
-                ? "border-white/40 bg-white/10"
-                : "border-white/10 bg-white/3 hover:bg-white/8 hover:border-white/20"
-            }`}
-          >
-            <p className="text-sm font-semibold mb-1">{action.label}</p>
-            <p className="text-xs text-gray-500">{action.description}</p>
-          </button>
-        ))}
-      </div>
-
-      {/* Chat history header */}
-      {messages.length > 0 && (
-        <div className="flex items-center justify-between mb-4">
-          <p className="text-xs text-gray-500 uppercase tracking-widest">Conversation</p>
-          <button
-            onClick={clearHistory}
-            className="text-xs text-gray-600 hover:text-red-400 transition"
-          >
-            Clear conversation
-          </button>
+          <div className="flex gap-2 overflow-x-auto pb-1 lg:max-w-2xl">
+            {courses.map((course) => (
+              <button
+                key={course.code}
+                onClick={() => chooseCourse(course)}
+                className={`shrink-0 px-3 py-2 rounded-xl border text-left transition ${
+                  selectedCourse.code === course.code
+                    ? "border-white bg-white text-black"
+                    : "border-white/10 text-gray-400 hover:text-white hover:border-white/30"
+                }`}
+              >
+                <span
+                  className="block font-mono text-xs font-bold"
+                  style={{
+                    color: selectedCourse.code === course.code ? "black" : course.color,
+                  }}
+                >
+                  {course.code}
+                </span>
+                <span className="block max-w-44 truncate text-xs">{course.name}</span>
+              </button>
+            ))}
+          </div>
         </div>
-      )}
+      </div>
 
-      {/* Messages */}
-      <div className="space-y-4 mb-6">
-        {messages.map((msg) => (
-          <div
-            key={msg.id}
-            className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
-          >
-            <div
-              className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${
-                msg.role === "user"
-                  ? "bg-white text-black"
-                  : "bg-white/5 border border-white/10 text-gray-200"
-              }`}
+      <div className="grid gap-6 lg:grid-cols-[290px_minmax(0,1fr)]">
+        <aside className="rounded-2xl border border-white/10 bg-zinc-950/80 p-3 lg:min-h-[650px]">
+          <div className="flex items-center justify-between gap-3 px-2 py-2">
+            <div>
+              <p className="text-xs text-gray-500 uppercase tracking-widest">Chats</p>
+              <p className="text-xs text-gray-400 font-mono mt-1">{selectedCourse.code}</p>
+            </div>
+
+            <button
+              onClick={startNewChat}
+              className="rounded-xl bg-white px-3 py-2 text-xs font-semibold text-black transition hover:bg-gray-100"
             >
-              <pre className="whitespace-pre-wrap font-sans">{msg.content}</pre>
-              <p className="text-xs opacity-40 mt-2">
-                {new Date(msg.timestamp).toLocaleTimeString()}
-              </p>
-            </div>
+              New chat
+            </button>
           </div>
-        ))}
-        {loading && (
-          <div className="flex justify-start">
-            <div className="bg-white/5 border border-white/10 rounded-2xl px-4 py-3">
-              <div className="flex gap-1">
-                <span className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
-                <span className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
-                <span className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
+
+          <div className="mt-3 space-y-4">
+            {conversationGroups.length === 0 && (
+              <div className="rounded-xl border border-white/10 bg-white/5 p-4 text-sm text-gray-500">
+                No conversations for this course yet.
               </div>
-            </div>
+            )}
+
+            {conversationGroups.map((group) => (
+              <div key={group.label}>
+                <p className="px-2 pb-2 text-[11px] font-semibold uppercase tracking-widest text-gray-600">
+                  {group.label}
+                </p>
+
+                <div className="space-y-1">
+                  {group.conversations.map((conversation) => {
+                    const isActive = conversation.id === activeConversation?.id;
+                    const isEditing = conversation.id === editingConversationId;
+
+                    return (
+                      <div
+                        key={conversation.id}
+                        className={`rounded-xl border p-2 transition ${
+                          isActive
+                            ? "border-white/20 bg-white/10"
+                            : "border-transparent hover:bg-white/5"
+                        }`}
+                      >
+                        {isEditing ? (
+                          <div className="flex gap-2">
+                            <input
+                              value={editingTitle}
+                              onChange={(event) => setEditingTitle(event.target.value)}
+                              onKeyDown={(event) => {
+                                if (event.key === "Enter") submitRename();
+                                if (event.key === "Escape") setEditingConversationId(null);
+                              }}
+                              className="min-w-0 flex-1 rounded-lg border border-white/15 bg-black px-2 py-1 text-xs text-white outline-none"
+                              autoFocus
+                            />
+
+                            <button
+                              onClick={submitRename}
+                              className="rounded-lg bg-white px-2 py-1 text-xs font-semibold text-black"
+                            >
+                              Save
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="flex items-start gap-2">
+                            <button
+                              onClick={() => selectConversation(conversation.id)}
+                              className="min-w-0 flex-1 text-left"
+                            >
+                              <span className="block truncate text-sm font-medium text-gray-200">
+                                {conversation.title}
+                              </span>
+                              <span className="block text-[11px] text-gray-600">
+                                {conversation.messages.length} message
+                                {conversation.messages.length !== 1 ? "s" : ""}
+                              </span>
+                            </button>
+
+                            <div className="flex shrink-0 gap-1">
+                              <button
+                                onClick={() => beginRename(conversation)}
+                                className="rounded-md px-1.5 py-1 text-[11px] text-gray-500 hover:bg-white/10 hover:text-white"
+                              >
+                                Rename
+                              </button>
+
+                              <button
+                                onClick={() => removeConversation(conversation)}
+                                className="rounded-md px-1.5 py-1 text-[11px] text-gray-500 hover:bg-red-500/10 hover:text-red-300"
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
           </div>
-        )}
-        <div ref={messagesEndRef} />
+        </aside>
+
+        <section className="min-w-0">
+          <div className="mb-6">
+            <button
+              onClick={() => setShowUpload((value) => !value)}
+              className="flex items-center gap-2 rounded-xl border border-white/10 px-4 py-2 text-sm text-gray-400 transition hover:border-white/30 hover:text-white"
+            >
+              {uploadedText ? "Material uploaded - change" : "Upload lecture notes or material"}
+            </button>
+
+            {showUpload && (
+              <div className="mt-3 rounded-2xl border border-white/10 bg-white/5 p-4">
+                <p className="mb-3 text-sm text-gray-400">
+                  Upload a .txt file or paste course material below.
+                </p>
+
+                <input
+                  type="file"
+                  accept=".txt"
+                  onChange={handleFileUpload}
+                  className="mb-3 block text-sm text-gray-400"
+                />
+
+                <textarea
+                  placeholder="Or paste your lecture notes here..."
+                  value={uploadedText}
+                  onChange={(event) => setUploadedText(event.target.value)}
+                  className="h-32 w-full resize-none rounded-xl border border-white/10 bg-white/5 p-3 text-sm text-white outline-none placeholder:text-gray-600"
+                />
+
+                <button
+                  onClick={() => setShowUpload(false)}
+                  className="mt-2 text-xs text-gray-500 transition hover:text-white"
+                >
+                  Done
+                </button>
+              </div>
+            )}
+          </div>
+
+          <div className="mb-8 grid grid-cols-2 gap-3 sm:grid-cols-4">
+            {ACTIONS.map((action) => (
+              <button
+                key={action.id}
+                onClick={() => handleAction(action.id)}
+                disabled={loading}
+                className={`rounded-2xl border p-4 text-left transition disabled:cursor-not-allowed disabled:opacity-50 ${
+                  activeAction === action.id
+                    ? "border-white/40 bg-white/10"
+                    : "border-white/10 bg-white/5 hover:border-white/20 hover:bg-white/10"
+                }`}
+              >
+                <p className="mb-1 text-sm font-semibold">{action.label}</p>
+                <p className="text-xs text-gray-500">{action.description}</p>
+              </button>
+            ))}
+          </div>
+
+          <div className="mb-4 flex items-center justify-between gap-4">
+            <div>
+              <p className="text-xs text-gray-500 uppercase tracking-widest">Conversation</p>
+              <h2 className="mt-1 text-lg font-semibold text-white">
+                {activeConversation?.title ?? "Start a course chat"}
+              </h2>
+            </div>
+
+            {!activeConversation && courseConversations.length > 0 && (
+              <p className="text-right text-xs text-gray-500">
+                Pick a previous chat or start a new one.
+              </p>
+            )}
+          </div>
+
+          <div className="mb-6 min-h-[300px] space-y-4">
+            {messages.length === 0 && !loading && (
+              <div className="rounded-2xl border border-white/10 bg-white/5 p-6 text-sm text-gray-400">
+                Ask about {selectedCourse.code}, generate a study guide, or continue one of
+                this course&apos;s saved conversations.
+              </div>
+            )}
+
+            {messages.map((message) => (
+              <div
+                key={message.id}
+                className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}
+              >
+                <div
+                  className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${
+                    message.role === "user"
+                      ? "bg-white text-black"
+                      : "border border-white/10 bg-white/5 text-gray-200"
+                  }`}
+                >
+                  <pre className="whitespace-pre-wrap font-sans">{message.content}</pre>
+                  <p className="mt-2 text-xs opacity-40">
+                    {formatMessageTime(message.timestamp)}
+                  </p>
+                </div>
+              </div>
+            ))}
+
+            {loading && (
+              <div className="flex justify-start">
+                <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+                  <div className="flex gap-1">
+                    <span className="h-2 w-2 animate-bounce rounded-full bg-gray-500" />
+                    <span
+                      className="h-2 w-2 animate-bounce rounded-full bg-gray-500"
+                      style={{ animationDelay: "150ms" }}
+                    />
+                    <span
+                      className="h-2 w-2 animate-bounce rounded-full bg-gray-500"
+                      style={{ animationDelay: "300ms" }}
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div ref={messagesEndRef} />
+          </div>
+
+          {(activeAction === "explain" || activeAction === null) && (
+            <div className="flex gap-3">
+              <input
+                placeholder={`Ask anything about ${selectedCourse.code}...`}
+                value={input}
+                onChange={(event) => setInput(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" && !event.shiftKey) {
+                    event.preventDefault();
+                    void sendMessage();
+                  }
+                }}
+                className="min-w-0 flex-1 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none transition placeholder:text-gray-600 focus:border-white/25"
+              />
+
+              <button
+                onClick={() => void sendMessage()}
+                disabled={loading || !input.trim()}
+                className="rounded-2xl bg-white px-5 py-3 text-sm font-semibold text-black transition hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                Send
+              </button>
+            </div>
+          )}
+        </section>
       </div>
-
-      {/* Input */}
-      {(activeAction === "explain" || activeAction === null) && (
-        <div className="flex gap-3">
-          <input
-            placeholder={`Ask anything about ${selectedCourse?.code}...`}
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && sendMessage()}
-            className="flex-1 bg-white/5 border border-white/10 rounded-2xl px-4 py-3 text-sm outline-none focus:border-white/25 transition placeholder:text-gray-600"
-          />
-          <button
-            onClick={() => sendMessage()}
-            disabled={loading || !input.trim()}
-            className="bg-white text-black font-semibold px-5 py-3 rounded-2xl hover:bg-gray-100 transition disabled:opacity-40 disabled:cursor-not-allowed text-sm"
-          >
-            Send
-          </button>
-        </div>
-      )}
-
     </div>
   );
 }

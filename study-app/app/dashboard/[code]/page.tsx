@@ -1,17 +1,26 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { schools } from "../../../data/ccny";
 import catalog from "../../../data/catalog.json";
 import { saveToStorage, loadFromStorage, KEYS } from "@/lib/storage";
+import { useHydrated } from "@/hooks/useStoredValue";
 
 type Course = { code: string; name: string };
 type Department = { name: string; prefix: string; courses: Course[] };
 type CatalogSection = { section: string; color: string; departments: Department[] };
 
 const typedCatalog = catalog as CatalogSection[];
+
+function findMajorByCode(code: string) {
+  for (const school of schools) {
+    const plan = school.plans.find((candidate) => candidate.code === code);
+    if (plan) return { ...plan, school: school.name };
+  }
+  return null;
+}
 
 const MAJOR_TO_SECTION: Record<string, string> = {
   "ANTH-BA": "Colin Powell School for Civic and Global Leadership",
@@ -91,28 +100,17 @@ export default function CoursePickerPage() {
   const params = useParams();
   const router = useRouter();
   const code = params.code as string;
+  const hydrated = useHydrated();
 
   const [search, setSearch] = useState("");
-  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [selected, setSelected] = useState<Set<string>>(() => {
+    const savedCourses = loadFromStorage<{ code: string }[]>(KEYS.COURSES, []);
+    return new Set(savedCourses.map((course) => course.code));
+  });
   const [activeSection, setActiveSection] = useState<string | null>(null);
   const [showFilters, setShowFilters] = useState(false);
 
-  const major = useMemo(() => {
-    for (const school of schools) {
-      const plan = school.plans.find((p) => p.code === code);
-      if (plan) return { ...plan, school: school.name };
-    }
-    return null;
-  }, [code]);
-
-  // Load previously saved courses on mount
-  useEffect(() => {
-    const savedCourses = loadFromStorage<{ code: string }[]>(KEYS.COURSES, []);
-    if (savedCourses.length > 0) {
-      setSelected(new Set(savedCourses.map((c) => c.code)));
-    }
-  }, []);
-
+  const major = findMajorByCode(code);
   const preferredSection = MAJOR_TO_SECTION[code] ?? null;
 
   const orderedCatalog = useMemo(() => {
@@ -125,7 +123,11 @@ export default function CoursePickerPage() {
   const toggleCourse = (courseCode: string) => {
     setSelected((prev) => {
       const next = new Set(prev);
-      next.has(courseCode) ? next.delete(courseCode) : next.add(courseCode);
+      if (next.has(courseCode)) {
+        next.delete(courseCode);
+      } else {
+        next.add(courseCode);
+      }
       return next;
     });
   };
@@ -139,9 +141,9 @@ export default function CoursePickerPage() {
           .map((dept) => ({
             ...dept,
             courses: dept.courses.filter(
-              (c) =>
-                c.code.toLowerCase().includes(q) ||
-                c.name.toLowerCase().includes(q)
+              (course) =>
+                course.code.toLowerCase().includes(q) ||
+                course.name.toLowerCase().includes(q)
             ),
           }))
           .filter((dept) => dept.courses.length > 0),
@@ -157,6 +159,7 @@ export default function CoursePickerPage() {
     if (!major) return;
 
     const selectedCourses: { code: string; name: string; section: string; color: string }[] = [];
+
     for (const section of typedCatalog) {
       for (const dept of section.departments) {
         for (const course of dept.courses) {
@@ -177,12 +180,16 @@ export default function CoursePickerPage() {
     router.push("/dashboard");
   };
 
+  if (!hydrated) return <main className="min-h-screen bg-black" />;
+
   if (!major) {
     return (
       <main className="min-h-screen bg-black text-white flex items-center justify-center">
         <div className="text-center">
           <p className="text-gray-500 mb-4">Major not found: {code}</p>
-          <Link href="/majors" className="text-blue-400 hover:underline">← Back to majors</Link>
+          <Link href="/majors" className="text-blue-400 hover:underline">
+            ← Back to majors
+          </Link>
         </div>
       </main>
     );
@@ -190,20 +197,22 @@ export default function CoursePickerPage() {
 
   return (
     <main className="min-h-screen bg-black text-white">
-
-      {/* Header */}
       <div className="border-b border-white/10 bg-black/90 backdrop-blur sticky top-[65px] z-20">
         <div className="max-w-7xl mx-auto px-6 py-4">
           <div className="flex items-center gap-3 mb-3">
-            <Link href="/majors" className="text-gray-500 hover:text-white transition text-sm">← Majors</Link>
+            <Link href="/majors" className="text-gray-500 hover:text-white transition text-sm">
+              ← Majors
+            </Link>
             <span className="text-gray-700">/</span>
             <span className="text-sm text-blue-400 font-mono">{major.code}</span>
           </div>
+
           <div className="flex items-start justify-between gap-4">
             <div>
               <h1 className="text-2xl font-bold">{major.name}</h1>
               <p className="text-gray-500 text-sm mt-0.5">{major.school}</p>
             </div>
+
             {selected.size > 0 && (
               <button
                 onClick={handleSave}
@@ -216,7 +225,6 @@ export default function CoursePickerPage() {
         </div>
       </div>
 
-      {/* Body */}
       <div className="max-w-7xl mx-auto px-6 py-8">
         <div className="mb-8">
           <h2 className="text-xl font-bold mb-1">Pick Your Courses</h2>
@@ -225,26 +233,28 @@ export default function CoursePickerPage() {
           </p>
         </div>
 
-        {/* Search */}
         <div className="relative mb-5">
           <svg className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
           </svg>
+
           <input
             placeholder="Search by code or name..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="w-full bg-white/5 border border-white/10 rounded-2xl pl-11 pr-10 py-3 outline-none focus:border-white/25 transition text-sm placeholder:text-gray-600"
           />
+
           {search && (
-            <button onClick={() => setSearch("")} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white">✕</button>
+            <button onClick={() => setSearch("")} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white">
+              ✕
+            </button>
           )}
         </div>
 
-        {/* Filter toggle */}
         <div className="mb-8">
           <button
-            onClick={() => setShowFilters((v) => !v)}
+            onClick={() => setShowFilters((value) => !value)}
             className="flex items-center gap-2 text-sm text-gray-400 hover:text-white transition mb-3"
           >
             <div className="flex flex-col gap-1">
@@ -254,35 +264,38 @@ export default function CoursePickerPage() {
             </div>
             <span>Filter by School</span>
           </button>
+
           {showFilters && (
             <div className="flex gap-2 flex-wrap">
               <button
                 onClick={() => setActiveSection(null)}
                 className={`text-xs font-semibold px-3 py-1.5 rounded-full border transition ${
-                  activeSection === null ? "bg-white text-black border-white" : "border-white/10 text-gray-400 hover:text-white"
+                  activeSection === null
+                    ? "bg-white text-black border-white"
+                    : "border-white/10 text-gray-400 hover:text-white"
                 }`}
               >
                 All Schools
               </button>
-              {orderedCatalog.map((s) => (
+
+              {orderedCatalog.map((section) => (
                 <button
-                  key={s.section}
-                  onClick={() => setActiveSection(activeSection === s.section ? null : s.section)}
+                  key={section.section}
+                  onClick={() => setActiveSection(activeSection === section.section ? null : section.section)}
                   className="text-xs font-semibold px-3 py-1.5 rounded-full border transition"
                   style={
-                    activeSection === s.section
-                      ? { backgroundColor: s.color, borderColor: s.color, color: "white" }
+                    activeSection === section.section
+                      ? { backgroundColor: section.color, borderColor: section.color, color: "white" }
                       : { borderColor: "rgba(255,255,255,0.1)", color: "#9ca3af" }
                   }
                 >
-                  {s.section}
+                  {section.section}
                 </button>
               ))}
             </div>
           )}
         </div>
 
-        {/* Courses */}
         <div className="space-y-12">
           {filtered.map((section) => (
             <div key={section.section}>
@@ -290,16 +303,21 @@ export default function CoursePickerPage() {
                 <div className="w-1 h-6 rounded-full" style={{ backgroundColor: section.color }} />
                 <h3 className="text-lg font-bold">{section.section}</h3>
                 <span className="text-gray-600 text-sm">
-                  {section.departments.reduce((a, d) => a + d.courses.length, 0)} courses
+                  {section.departments.reduce((total, dept) => total + dept.courses.length, 0)} courses
                 </span>
               </div>
+
               <div className="space-y-6">
                 {section.departments.map((dept) => (
                   <div key={dept.name}>
-                    <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-widest mb-3">{dept.name}</h4>
+                    <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-widest mb-3">
+                      {dept.name}
+                    </h4>
+
                     <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2">
                       {dept.courses.map((course) => {
                         const isSelected = selected.has(course.code);
+
                         return (
                           <button
                             key={course.code}
@@ -315,8 +333,11 @@ export default function CoursePickerPage() {
                                 <p className="text-xs font-mono font-bold mb-1" style={{ color: section.color }}>
                                   {course.code}
                                 </p>
-                                <p className="text-sm text-gray-300 leading-snug line-clamp-2">{course.name}</p>
+                                <p className="text-sm text-gray-300 leading-snug line-clamp-2">
+                                  {course.name}
+                                </p>
                               </div>
+
                               <div className={`shrink-0 w-5 h-5 rounded-full border-2 flex items-center justify-center mt-0.5 transition ${
                                 isSelected ? "border-white bg-white" : "border-white/20 group-hover:border-white/50"
                               }`}>
@@ -339,17 +360,24 @@ export default function CoursePickerPage() {
         </div>
       </div>
 
-      {/* Bottom bar */}
       {selected.size > 0 && (
         <div className="fixed bottom-0 left-0 right-0 bg-black/95 backdrop-blur border-t border-white/10 px-6 py-4 z-30">
           <div className="max-w-7xl mx-auto flex items-center justify-between">
             <p className="text-sm text-gray-400">
-              <span className="text-white font-semibold">{selected.size} course{selected.size !== 1 ? "s" : ""}</span> selected
+              <span className="text-white font-semibold">
+                {selected.size} course{selected.size !== 1 ? "s" : ""}
+              </span>{" "}
+              selected
             </p>
+
             <div className="flex gap-3">
-              <button onClick={() => setSelected(new Set())} className="text-sm text-gray-500 hover:text-white transition px-4 py-2">
+              <button
+                onClick={() => setSelected(new Set())}
+                className="text-sm text-gray-500 hover:text-white transition px-4 py-2"
+              >
                 Clear
               </button>
+
               <button
                 onClick={handleSave}
                 className="bg-white hover:bg-gray-100 text-black text-sm font-semibold px-6 py-2 rounded-xl transition"
@@ -360,7 +388,6 @@ export default function CoursePickerPage() {
           </div>
         </div>
       )}
-
     </main>
   );
 }
