@@ -196,6 +196,8 @@ Format each question clearly with 4 options (A, B, C, D) and mark the correct an
 Make questions appropriate for a ${major} student at CCNY.` : ""}
 
 ${action === "flashcards" ? `Generate exactly 20 flashcards for ${course} (${courseCode}).
+If the student's message includes uploaded course material, use that material as the primary source.
+If the student's message includes a unit or focus topic, prioritize that focus.
 Use this exact format for every card:
 FRONT: [concept, term, or recall prompt]
 BACK: [clear definition, answer, or explanation]

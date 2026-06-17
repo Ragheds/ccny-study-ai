@@ -74,6 +74,7 @@ export function AITutor({
   const [loading, setLoading] = useState(false);
   const [uploadedText, setUploadedText] = useState("");
   const [showUpload, setShowUpload] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [editingConversationId, setEditingConversationId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -112,6 +113,7 @@ export function AITutor({
     setSelectedCourseCode(course.code);
     setActiveAction(null);
     setInput("");
+    setSidebarOpen(false);
     onActiveCourseChange?.(course.code);
   };
 
@@ -121,12 +123,14 @@ export function AITutor({
     setWorkspace((current) => addConversation(current, conversation));
     setActiveAction(null);
     setInput("");
+    setSidebarOpen(false);
   };
 
   const selectConversation = (conversationId: string) => {
     setWorkspace((current) => touchConversation(current, conversationId));
     setActiveAction(null);
     setInput("");
+    setSidebarOpen(false);
   };
 
   const beginRename = (conversation: ChatConversation) => {
@@ -281,135 +285,94 @@ export function AITutor({
             </p>
           </div>
 
-          <div className="flex gap-2 overflow-x-auto pb-1 lg:max-w-2xl">
-            {courses.map((course) => (
-              <button
-                key={course.code}
-                onClick={() => chooseCourse(course)}
-                className={`shrink-0 px-3 py-2 rounded-xl border text-left transition ${
-                  selectedCourse.code === course.code
-                    ? "border-[var(--app-text)] bg-[var(--app-text)] text-[var(--app-bg)]"
-                    : "border-[var(--app-border)] text-[var(--app-muted)] hover:text-[var(--app-text)] hover:border-[var(--app-border-strong)]"
-                }`}
-              >
-                <span
-                  className="block font-mono text-xs font-bold"
-                  style={{
-                    color: selectedCourse.code === course.code ? "var(--app-bg)" : course.color,
-                  }}
+          <div className="flex flex-col gap-3 lg:items-end">
+            <button
+              type="button"
+              onClick={() => setSidebarOpen(true)}
+              className="w-fit rounded-2xl border border-[var(--app-border)] px-4 py-2 text-sm font-semibold text-[var(--app-muted-strong)] transition hover:border-[var(--app-border-strong)] hover:text-[var(--app-text)] lg:hidden"
+            >
+              ☰ Chats
+            </button>
+
+            <div className="flex gap-2 overflow-x-auto pb-1 lg:max-w-2xl">
+              {courses.map((course) => (
+                <button
+                  key={course.code}
+                  onClick={() => chooseCourse(course)}
+                  className={`shrink-0 px-3 py-2 rounded-xl border text-left transition ${
+                    selectedCourse.code === course.code
+                      ? "border-[var(--app-text)] bg-[var(--app-text)] text-[var(--app-bg)]"
+                      : "border-[var(--app-border)] text-[var(--app-muted)] hover:text-[var(--app-text)] hover:border-[var(--app-border-strong)]"
+                  }`}
                 >
-                  {course.code}
-                </span>
-                <span className="block max-w-44 truncate text-xs">{course.name}</span>
-              </button>
-            ))}
+                  <span
+                    className="block font-mono text-xs font-bold"
+                    style={{
+                      color: selectedCourse.code === course.code ? "var(--app-bg)" : course.color,
+                    }}
+                  >
+                    {course.code}
+                  </span>
+                  <span className="block max-w-44 truncate text-xs">{course.name}</span>
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[290px_minmax(0,1fr)]">
-        <aside className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface)] p-3 shadow-sm lg:min-h-[650px]">
-          <div className="flex items-center justify-between gap-3 px-2 py-2">
-            <div>
-              <p className="text-xs text-[var(--app-muted)] uppercase tracking-widest">Chats</p>
-              <p className="text-xs text-[var(--app-muted-strong)] font-mono mt-1">{selectedCourse.code}</p>
+      {sidebarOpen && (
+        <div className="fixed inset-0 z-40 bg-black/40 lg:hidden" onClick={() => setSidebarOpen(false)}>
+          <div
+            className="h-full w-[min(86vw,360px)] overflow-y-auto bg-[var(--app-bg)] p-4"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="mb-3 flex items-center justify-between">
+              <p className="text-sm font-semibold text-[var(--app-text)]">Course chats</p>
+              <button
+                type="button"
+                onClick={() => setSidebarOpen(false)}
+                className="rounded-lg border border-[var(--app-border)] px-3 py-2 text-sm text-[var(--app-muted-strong)]"
+              >
+                Close
+              </button>
             </div>
 
-            <button
-              onClick={startNewChat}
-              className="rounded-xl bg-[var(--app-text)] px-3 py-2 text-xs font-semibold text-[var(--app-bg)] transition hover:opacity-90"
-            >
-              New chat
-            </button>
+            <ChatHistoryPanel
+              activeConversation={activeConversation}
+              conversationGroups={conversationGroups}
+              editingConversationId={editingConversationId}
+              editingTitle={editingTitle}
+              selectedCourseCode={selectedCourse.code}
+              setEditingConversationId={setEditingConversationId}
+              setEditingTitle={setEditingTitle}
+              onBeginRename={beginRename}
+              onRemoveConversation={removeConversation}
+              onSelectConversation={selectConversation}
+              onStartNewChat={startNewChat}
+              onSubmitRename={submitRename}
+            />
           </div>
+        </div>
+      )}
 
-          <div className="mt-3 space-y-4">
-            {conversationGroups.length === 0 && (
-              <div className="rounded-xl border border-[var(--app-border)] bg-[var(--app-surface-muted)] p-4 text-sm text-[var(--app-muted)]">
-                No conversations for this course yet.
-              </div>
-            )}
-
-            {conversationGroups.map((group) => (
-              <div key={group.label}>
-                <p className="px-2 pb-2 text-[11px] font-semibold uppercase tracking-widest text-[var(--app-muted)]">
-                  {group.label}
-                </p>
-
-                <div className="space-y-1">
-                  {group.conversations.map((conversation) => {
-                    const isActive = conversation.id === activeConversation?.id;
-                    const isEditing = conversation.id === editingConversationId;
-
-                    return (
-                      <div
-                        key={conversation.id}
-                        className={`rounded-xl border p-2 transition ${
-                          isActive
-                            ? "border-[var(--app-border-strong)] bg-[var(--app-surface-strong)]"
-                            : "border-transparent hover:bg-[var(--app-surface-muted)]"
-                        }`}
-                      >
-                        {isEditing ? (
-                          <div className="flex gap-2">
-                            <input
-                              value={editingTitle}
-                              onChange={(event) => setEditingTitle(event.target.value)}
-                              onKeyDown={(event) => {
-                                if (event.key === "Enter") submitRename();
-                                if (event.key === "Escape") setEditingConversationId(null);
-                              }}
-                              className="min-w-0 flex-1 rounded-lg border border-[var(--app-border)] bg-[var(--app-bg)] px-2 py-1 text-xs text-[var(--app-text)] outline-none"
-                              autoFocus
-                            />
-
-                            <button
-                              onClick={submitRename}
-                              className="rounded-lg bg-[var(--app-text)] px-2 py-1 text-xs font-semibold text-[var(--app-bg)]"
-                            >
-                              Save
-                            </button>
-                          </div>
-                        ) : (
-                          <div className="flex items-start gap-2">
-                            <button
-                              onClick={() => selectConversation(conversation.id)}
-                              className="min-w-0 flex-1 text-left"
-                            >
-                              <span className="block truncate text-sm font-medium text-[var(--app-text)]">
-                                {conversation.title}
-                              </span>
-                              <span className="block text-[11px] text-[var(--app-muted)]">
-                                {conversation.messages.length} message
-                                {conversation.messages.length !== 1 ? "s" : ""}
-                              </span>
-                            </button>
-
-                            <div className="flex shrink-0 gap-1">
-                              <button
-                                onClick={() => beginRename(conversation)}
-                                className="rounded-md px-1.5 py-1 text-[11px] text-[var(--app-muted)] hover:bg-[var(--app-surface-muted)] hover:text-[var(--app-text)]"
-                              >
-                                Rename
-                              </button>
-
-                              <button
-                                onClick={() => removeConversation(conversation)}
-                                className="rounded-md px-1.5 py-1 text-[11px] text-[var(--app-muted)] hover:bg-red-500/10 hover:text-red-500"
-                              >
-                                Delete
-                              </button>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            ))}
-          </div>
-        </aside>
+      <div className="grid gap-6 lg:grid-cols-[290px_minmax(0,1fr)]">
+        <div className="hidden lg:block">
+          <ChatHistoryPanel
+            activeConversation={activeConversation}
+            conversationGroups={conversationGroups}
+            editingConversationId={editingConversationId}
+            editingTitle={editingTitle}
+            selectedCourseCode={selectedCourse.code}
+            setEditingConversationId={setEditingConversationId}
+            setEditingTitle={setEditingTitle}
+            onBeginRename={beginRename}
+            onRemoveConversation={removeConversation}
+            onSelectConversation={selectConversation}
+            onStartNewChat={startNewChat}
+            onSubmitRename={submitRename}
+          />
+        </div>
 
         <section className="min-w-0">
           <div className="mb-6">
@@ -559,5 +522,145 @@ export function AITutor({
         </section>
       </div>
     </div>
+  );
+}
+
+function ChatHistoryPanel({
+  activeConversation,
+  conversationGroups,
+  editingConversationId,
+  editingTitle,
+  selectedCourseCode,
+  setEditingConversationId,
+  setEditingTitle,
+  onBeginRename,
+  onRemoveConversation,
+  onSelectConversation,
+  onStartNewChat,
+  onSubmitRename,
+}: {
+  activeConversation?: ChatConversation;
+  conversationGroups: ReturnType<typeof groupConversationsByDate>;
+  editingConversationId: string | null;
+  editingTitle: string;
+  selectedCourseCode: string;
+  setEditingConversationId: (conversationId: string | null) => void;
+  setEditingTitle: (title: string) => void;
+  onBeginRename: (conversation: ChatConversation) => void;
+  onRemoveConversation: (conversation: ChatConversation) => void;
+  onSelectConversation: (conversationId: string) => void;
+  onStartNewChat: () => void;
+  onSubmitRename: () => void;
+}) {
+  return (
+    <aside className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface)] p-3 shadow-sm lg:min-h-[650px]">
+      <div className="flex items-center justify-between gap-3 px-2 py-2">
+        <div>
+          <p className="text-xs uppercase tracking-widest text-[var(--app-muted)]">Chats</p>
+          <p className="mt-1 font-mono text-xs text-[var(--app-muted-strong)]">
+            {selectedCourseCode}
+          </p>
+        </div>
+
+        <button
+          type="button"
+          onClick={onStartNewChat}
+          className="rounded-xl bg-[var(--app-text)] px-3 py-2 text-xs font-semibold text-[var(--app-bg)] transition hover:opacity-90"
+        >
+          New chat
+        </button>
+      </div>
+
+      <div className="mt-3 space-y-4">
+        {conversationGroups.length === 0 && (
+          <div className="rounded-xl border border-[var(--app-border)] bg-[var(--app-surface-muted)] p-4 text-sm text-[var(--app-muted)]">
+            No conversations for this course yet.
+          </div>
+        )}
+
+        {conversationGroups.map((group) => (
+          <div key={group.label}>
+            <p className="px-2 pb-2 text-[11px] font-semibold uppercase tracking-widest text-[var(--app-muted)]">
+              {group.label}
+            </p>
+
+            <div className="space-y-1">
+              {group.conversations.map((conversation) => {
+                const isActive = conversation.id === activeConversation?.id;
+                const isEditing = conversation.id === editingConversationId;
+
+                return (
+                  <div
+                    key={conversation.id}
+                    className={`rounded-xl border p-2 transition ${
+                      isActive
+                        ? "border-[var(--app-border-strong)] bg-[var(--app-surface-strong)]"
+                        : "border-transparent hover:bg-[var(--app-surface-muted)]"
+                    }`}
+                  >
+                    {isEditing ? (
+                      <div className="flex gap-2">
+                        <input
+                          value={editingTitle}
+                          onChange={(event) => setEditingTitle(event.target.value)}
+                          onKeyDown={(event) => {
+                            if (event.key === "Enter") onSubmitRename();
+                            if (event.key === "Escape") setEditingConversationId(null);
+                          }}
+                          className="min-w-0 flex-1 rounded-lg border border-[var(--app-border)] bg-[var(--app-bg)] px-2 py-1 text-xs text-[var(--app-text)] outline-none"
+                          autoFocus
+                        />
+
+                        <button
+                          type="button"
+                          onClick={onSubmitRename}
+                          className="rounded-lg bg-[var(--app-text)] px-2 py-1 text-xs font-semibold text-[var(--app-bg)]"
+                        >
+                          Save
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex items-start gap-2">
+                        <button
+                          type="button"
+                          onClick={() => onSelectConversation(conversation.id)}
+                          className="min-w-0 flex-1 text-left"
+                        >
+                          <span className="block truncate text-sm font-medium text-[var(--app-text)]">
+                            {conversation.title}
+                          </span>
+                          <span className="block text-[11px] text-[var(--app-muted)]">
+                            {conversation.messages.length} message
+                            {conversation.messages.length !== 1 ? "s" : ""}
+                          </span>
+                        </button>
+
+                        <div className="flex shrink-0 gap-1">
+                          <button
+                            type="button"
+                            onClick={() => onBeginRename(conversation)}
+                            className="rounded-md px-1.5 py-1 text-[11px] text-[var(--app-muted)] hover:bg-[var(--app-surface-muted)] hover:text-[var(--app-text)]"
+                          >
+                            Rename
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => onRemoveConversation(conversation)}
+                            className="rounded-md px-1.5 py-1 text-[11px] text-[var(--app-muted)] hover:bg-red-500/10 hover:text-red-500"
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+      </div>
+    </aside>
   );
 }
