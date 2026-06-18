@@ -35,6 +35,7 @@ export default function Navbar() {
   const accountHref = account ? "/dashboard/account" : "/login";
   const accountLabel = account ? "Account" : "Sign in";
   const isHome = pathname === "/";
+  const isAuthPage = pathname === "/login" || pathname === "/signup";
   const scrollHomeToTop = () => {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
@@ -50,6 +51,8 @@ export default function Navbar() {
     closeMenus();
     router.push("/");
   };
+
+  if (isAuthPage) return null;
 
   if (isHome) {
     return (
@@ -68,7 +71,7 @@ export default function Navbar() {
           <span className="home-nav-haze hidden md:block" aria-hidden="true" />
 
           <Link
-            href={account ? "/dashboard" : "/login"}
+            href={account ? "/dashboard" : "/signup"}
             className="rounded-2xl border border-white/[0.22] bg-white/[0.08] px-4 py-2 text-sm font-bold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.12)] transition hover:bg-white/[0.13] sm:px-5 sm:py-2.5"
           >
             {account ? "Dashboard" : "Start now"}

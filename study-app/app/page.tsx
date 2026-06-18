@@ -164,7 +164,7 @@ export default function Home() {
   const hydrated = useHydrated();
   const [account] = useStoredValue<AccountProfile | null>(KEYS.ACCOUNT, null);
   const isSignedIn = hydrated && Boolean(account);
-  const primaryHref = isSignedIn ? "/dashboard" : "/login";
+  const primaryHref = isSignedIn ? "/dashboard" : "/signup";
   const primaryLabel = isSignedIn ? "Dashboard" : "Get Started - It's Free";
   const [assistantShift, setAssistantShift] = useState(0);
   const scrollHomeToTop = () => {
