@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { useHydrated, useStoredValue } from "@/hooks/useStoredValue";
@@ -16,6 +17,7 @@ import { KEYS } from "@/lib/storage";
 const EMPTY_COURSES: SavedCourse[] = [];
 
 export default function AccountPage() {
+  const router = useRouter();
   const hydrated = useHydrated();
   const [account, setAccount] = useStoredValue<AccountProfile | null>(KEYS.ACCOUNT, null);
   const [major] = useStoredValue<SavedMajor | null>(KEYS.MAJOR, null);
@@ -53,6 +55,11 @@ export default function AccountPage() {
     setAccount(updateAccountProfile(account, cleanName, cleanEmail));
     setEditing(false);
     setError("");
+  };
+
+  const handleLogout = () => {
+    setAccount(null);
+    router.push("/");
   };
 
   if (!hydrated) return <main className="min-h-screen bg-[var(--app-bg)]" />;
@@ -150,7 +157,7 @@ export default function AccountPage() {
 
                   <button
                     type="button"
-                    onClick={() => setAccount(null)}
+                    onClick={handleLogout}
                     className="mt-8 w-full rounded-2xl border border-red-500/40 px-5 py-3 text-sm font-semibold text-red-500 transition hover:bg-red-500/10"
                   >
                     Log out
