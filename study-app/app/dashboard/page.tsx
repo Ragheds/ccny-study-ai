@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { AITutor } from "@/components/AITutor";
 import { FlashcardsWorkspace } from "@/components/FlashcardsWorkspace";
 import { useHydrated, useStoredValue } from "@/hooks/useStoredValue";
@@ -58,6 +58,16 @@ export default function DashboardPage() {
   const [courses] = useStoredValue(KEYS.COURSES, EMPTY_COURSES);
   const [activeTab, setActiveTab] = useState<TabId>(getInitialTab);
   const [activeCourseCode, setActiveCourseCode] = useState<string | null>(getInitialCourseCode);
+
+  useEffect(() => {
+    const openDashboardHome = () => {
+      setActiveTab("courses");
+      setActiveCourseCode(null);
+    };
+
+    window.addEventListener("ccny-dashboard-home", openDashboardHome);
+    return () => window.removeEventListener("ccny-dashboard-home", openDashboardHome);
+  }, []);
 
   const grouped = courses.reduce((acc, course) => {
     if (!acc[course.section]) acc[course.section] = [];
@@ -152,7 +162,10 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-6 py-10">
+      <div
+        key={`${activeTab}-${activeCourseCode ?? "none"}`}
+        className="dashboard-tab-panel max-w-7xl mx-auto px-6 py-10"
+      >
         {activeTab === "courses" && (
           <div>
             {courses.length === 0 ? (

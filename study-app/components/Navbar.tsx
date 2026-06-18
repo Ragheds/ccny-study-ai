@@ -35,6 +35,9 @@ export default function Navbar() {
   const scrollHomeToTop = () => {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
+  const openDashboardHome = () => {
+    window.dispatchEvent(new Event("ccny-dashboard-home"));
+  };
 
   if (isHome) {
     return (
@@ -66,7 +69,12 @@ export default function Navbar() {
   return (
     <nav className="sticky top-0 z-50 border-b border-[var(--app-border)] bg-[var(--app-nav)] backdrop-blur">
       <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-6 py-3">
-        <div className="flex items-center gap-3" aria-label="CCNY Study AI">
+        <Link
+          href="/dashboard"
+          onClick={openDashboardHome}
+          className="group flex items-center gap-3 transition-opacity duration-200 hover:opacity-80 active:opacity-60"
+          aria-label="Open dashboard home"
+        >
           <BrandMark size="md" variant="app" />
 
           <span className="leading-tight">
@@ -77,7 +85,7 @@ export default function Navbar() {
               Course-aware workspace
             </span>
           </span>
-        </div>
+        </Link>
 
         <div className="hidden items-center gap-4 lg:flex">
           <div className="flex items-center gap-1">

@@ -443,6 +443,10 @@ body {
   background-color: rgba(255, 255, 255, 0.07);
 }
 
+.dashboard-tab-panel {
+  animation: dashboard-tab-fade 180ms ease-out;
+}
+
 @keyframes home-star-twinkle {
   0%,
   100% {
@@ -625,6 +629,18 @@ body {
   }
 }
 
+@keyframes dashboard-tab-fade {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .home-star,
   .home-preview-card,
@@ -639,7 +655,8 @@ body {
   .home-beaver-tail,
   .home-beaver-leg,
   .home-beaver-arm-left,
-  .home-beaver-arm-right {
+  .home-beaver-arm-right,
+  .dashboard-tab-panel {
     animation: none;
   }
 
