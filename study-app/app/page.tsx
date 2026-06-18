@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState, type CSSProperties } from "react";
+import { BrandMark } from "@/components/BrandMark";
 import { useHydrated, useStoredValue } from "@/hooks/useStoredValue";
 import { AccountProfile } from "@/lib/account";
 import { KEYS } from "@/lib/storage";
@@ -166,6 +167,9 @@ export default function Home() {
   const primaryHref = isSignedIn ? "/dashboard" : "/login";
   const primaryLabel = isSignedIn ? "Dashboard" : "Get Started - It's Free";
   const [assistantShift, setAssistantShift] = useState(0);
+  const scrollHomeToTop = () => {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
 
   useEffect(() => {
     const updateShift = () => {
@@ -180,7 +184,7 @@ export default function Home() {
   }, []);
 
   return (
-    <main className="home-landing relative min-h-screen overflow-hidden bg-[#030405] text-white">
+    <main id="top" className="home-landing relative min-h-screen overflow-hidden bg-[#030405] text-white">
       <div className="home-space-bg" aria-hidden="true" />
       <div className="home-star-field" aria-hidden="true">
         {STARS.map((star) => (
@@ -338,17 +342,20 @@ export default function Home() {
       <footer className="relative z-10 border-t border-white/10 px-6 py-12">
         <div className="mx-auto grid max-w-7xl gap-8 md:grid-cols-[1fr_auto] md:items-end">
           <div>
-            <Link href="/" className="inline-flex items-center gap-3">
-              <span className="flex h-11 w-11 items-center justify-center rounded-xl border border-white/[0.12] bg-white/[0.07] text-sm font-black text-white">
-                CC
-              </span>
+            <button
+              type="button"
+              onClick={scrollHomeToTop}
+              className="inline-flex items-center gap-3 text-left"
+              aria-label="Scroll to top"
+            >
+              <BrandMark size="xl" variant="footer" />
               <span>
                 <span className="block text-lg font-black text-white">CCNY Study AI</span>
                 <span className="block text-sm text-white/50">
                   Built for students at The City College of New York.
                 </span>
               </span>
-            </Link>
+            </button>
             <p className="mt-5 text-sm font-semibold text-white/[0.58]">
               Made by Raghed Soliman.
             </p>
