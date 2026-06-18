@@ -2,6 +2,9 @@
 
 import { useCallback, useMemo, useSyncExternalStore } from "react";
 import {
+  getEffectiveStorageKey,
+  isAccountScopedStorageKey,
+  KEYS,
   readStorageRaw,
   saveToStorage,
   STORAGE_CHANGE_EVENT,
@@ -20,14 +23,28 @@ function parseStoredValue<T>(raw: string | null, fallback: T): T {
 
 function subscribeToStorageKey(key: string, onStoreChange: () => void): () => void {
   if (typeof window === "undefined") return () => {};
+  const isAccountScoped = isAccountScopedStorageKey(key);
+
+  const isRelevantChange = (changedKey: string | null, changedStorageKey?: string | null) => {
+    const currentStorageKey = getEffectiveStorageKey(key);
+
+    return (
+      changedKey === key ||
+      changedKey === currentStorageKey ||
+      changedStorageKey === currentStorageKey ||
+      Boolean(isAccountScoped && changedKey === KEYS.ACCOUNT)
+    );
+  };
 
   const handleStorage = (event: StorageEvent) => {
-    if (event.key === key) onStoreChange();
+    if (isRelevantChange(event.key)) onStoreChange();
   };
 
   const handleLocalChange = (event: Event) => {
-    const customEvent = event as CustomEvent<{ key?: string }>;
-    if (customEvent.detail?.key === key) onStoreChange();
+    const customEvent = event as CustomEvent<{ key?: string; storageKey?: string }>;
+    if (isRelevantChange(customEvent.detail?.key ?? null, customEvent.detail?.storageKey)) {
+      onStoreChange();
+    }
   };
 
   window.addEventListener("storage", handleStorage);

@@ -7,7 +7,7 @@ import {
   createAccountProfileFromAuthUser,
 } from "@/lib/account";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
-import { KEYS } from "@/lib/storage";
+import { KEYS, migrateLegacyStorageToAccount } from "@/lib/storage";
 import { useStoredValue } from "@/hooks/useStoredValue";
 
 function accountsMatch(current: AccountProfile | null, next: AccountProfile): boolean {
@@ -33,6 +33,7 @@ export function SupabaseAccountBridge() {
       if (!mounted || !data.user) return;
 
       const nextAccount = createAccountProfileFromAuthUser(data.user);
+      migrateLegacyStorageToAccount(nextAccount.id);
       setAccount((current) => (accountsMatch(current, nextAccount) ? current : nextAccount));
     };
 
@@ -50,6 +51,7 @@ export function SupabaseAccountBridge() {
       if (!session?.user) return;
 
       const nextAccount = createAccountProfileFromAuthUser(session.user);
+      migrateLegacyStorageToAccount(nextAccount.id);
       setAccount((current) => (accountsMatch(current, nextAccount) ? current : nextAccount));
     });
 
