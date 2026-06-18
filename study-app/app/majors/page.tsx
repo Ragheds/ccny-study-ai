@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { schools } from "../../data/ccny";
 
 const SCHOOL_COLORS = [
@@ -24,9 +25,19 @@ function getTotalPlans(): number {
 }
 
 export default function MajorsPage() {
+  return (
+    <Suspense fallback={<main className="min-h-screen bg-[var(--app-bg)]" />}>
+      <MajorsContent />
+    </Suspense>
+  );
+}
+
+function MajorsContent() {
+  const searchParams = useSearchParams();
   const [query, setQuery] = useState("");
   const normalizedQuery = query.toLowerCase().trim();
   const totalPlans = getTotalPlans();
+  const fromAccount = searchParams.get("from") === "account";
 
   const filtered = schools
     .map((school, index) => ({
@@ -147,7 +158,7 @@ export default function MajorsPage() {
                 {school.plans.map((plan) => (
                   <Link
                     key={`${school.name}-${plan.code}`}
-                    href={`/dashboard/${plan.code}`}
+                    href={`/dashboard/${plan.code}${fromAccount ? "?from=account" : ""}`}
                     className="group block rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface)] p-5 transition hover:-translate-y-0.5 hover:border-[var(--app-border-strong)] hover:bg-[var(--app-surface-muted)]"
                   >
                     <div className="mb-4 flex items-start justify-between gap-3">

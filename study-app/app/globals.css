@@ -52,3 +52,65 @@ body {
 * {
   border-color: var(--app-border);
 }
+
+.flashcard-focus-example {
+  position: absolute;
+  inset: 0;
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  opacity: 0;
+  transform: translateY(18px);
+  animation: flashcard-focus-cycle 7.2s ease-in-out infinite;
+}
+
+.flashcard-focus-example-a {
+  animation-delay: 0s;
+}
+
+.flashcard-focus-example-b {
+  animation-delay: 3.6s;
+}
+
+@keyframes flashcard-focus-cycle {
+  0% {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  8% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  13% {
+    transform: translateY(3px);
+  }
+  18% {
+    transform: translateY(-2px);
+  }
+  24%,
+  43% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  50% {
+    opacity: 0;
+    transform: translateY(-18px);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-18px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .flashcard-focus-example {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+
+  .flashcard-focus-example-b {
+    display: none;
+  }
+}

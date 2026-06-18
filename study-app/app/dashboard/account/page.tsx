@@ -218,12 +218,23 @@ export default function AccountPage() {
                   </p>
                 </div>
 
-                <Link
-                  href={major ? `/dashboard/${major.code}` : "/majors"}
-                  className="rounded-2xl bg-[var(--app-text)] px-5 py-3 text-sm font-semibold text-[var(--app-bg)] transition hover:opacity-90"
-                >
-                  {major ? "Manage Courses" : "Choose Major"}
-                </Link>
+                <div className="flex flex-col gap-2 sm:flex-row">
+                  <Link
+                    href="/majors?from=account"
+                    className="rounded-2xl border border-[var(--app-border)] px-5 py-3 text-center text-sm font-semibold text-[var(--app-muted-strong)] transition hover:border-[var(--app-border-strong)] hover:text-[var(--app-text)]"
+                  >
+                    {major ? "Change Major" : "Choose Major"}
+                  </Link>
+
+                  {major && (
+                    <Link
+                      href={`/dashboard/${major.code}?from=account`}
+                      className="rounded-2xl bg-[var(--app-text)] px-5 py-3 text-center text-sm font-semibold text-[var(--app-bg)] transition hover:opacity-90"
+                    >
+                      Manage Courses
+                    </Link>
+                  )}
+                </div>
               </div>
 
               <div className="mt-6 grid gap-3 sm:grid-cols-3">

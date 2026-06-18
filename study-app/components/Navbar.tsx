@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
-import { ThemeToggle } from "@/components/ThemeToggle";
 import { useStoredValue } from "@/hooks/useStoredValue";
 import { AccountProfile } from "@/lib/account";
 import { KEYS } from "@/lib/storage";
@@ -13,11 +12,6 @@ const PRIMARY_LINKS = [
   { href: "/dashboard?tab=ai", label: "AI Tutor" },
   { href: "/notes", label: "Notes" },
   { href: "/progress", label: "Progress" },
-];
-
-const SETUP_LINKS = [
-  { href: "/majors", label: "Majors" },
-  { href: "/courses", label: "Course Catalog" },
 ];
 
 function isActivePath(pathname: string, href: string): boolean {
@@ -77,28 +71,6 @@ export default function Navbar() {
           </div>
 
           <div className="h-6 w-px bg-[var(--app-border)]" />
-
-          <div className="flex items-center gap-1">
-            {SETUP_LINKS.map((link) => {
-              const isActive = isActivePath(pathname, link.href);
-
-              return (
-                <Link
-                  key={link.href}
-                  href={link.href}
-                  className={`rounded-lg px-3 py-2 text-xs font-semibold transition ${
-                    isActive
-                      ? "bg-[var(--app-accent-soft)] text-[var(--app-accent)]"
-                      : "text-[var(--app-muted)] hover:bg-[var(--app-surface-muted)] hover:text-[var(--app-text)]"
-                  }`}
-                >
-                  {link.label}
-                </Link>
-              );
-            })}
-          </div>
-
-          <ThemeToggle />
 
           <Link
             href={accountHref}
@@ -166,40 +138,6 @@ export default function Navbar() {
                 );
               })}
             </div>
-          </div>
-
-          <div>
-            <p className="mb-2 text-[11px] font-semibold uppercase tracking-widest text-[var(--app-muted)]">
-              Setup
-            </p>
-
-            <div className="grid gap-2">
-              {SETUP_LINKS.map((link) => {
-                const isActive = isActivePath(pathname, link.href);
-
-                return (
-                  <Link
-                    key={link.href}
-                    href={link.href}
-                    onClick={() => setMenuOpen(false)}
-                    className={`rounded-lg px-4 py-3 text-sm font-medium transition ${
-                      isActive
-                        ? "bg-[var(--app-accent-soft)] text-[var(--app-accent)]"
-                        : "bg-[var(--app-surface-muted)] text-[var(--app-muted)] hover:text-[var(--app-text)]"
-                    }`}
-                  >
-                    {link.label}
-                  </Link>
-                );
-              })}
-            </div>
-          </div>
-
-          <div className="mt-4">
-            <p className="mb-2 text-[11px] font-semibold uppercase tracking-widest text-[var(--app-muted)]">
-              Theme
-            </p>
-            <ThemeToggle />
           </div>
 
           <div className="mt-4">

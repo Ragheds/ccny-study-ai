@@ -206,7 +206,7 @@ Make questions appropriate for a ${major} student at CCNY.` : ""}
 
 ${action === "flashcards" ? `Generate exactly 20 flashcards for ${course} (${courseCode}).
 If the student's message includes uploaded course material, use that material as the primary source.
-If the student's message includes a unit or focus topic, prioritize that focus.
+If the student's message includes a unit or focus topic, treat it as a required scope for the set and make every card support that focus.
 Use this exact format for every card:
 FRONT: [concept, term, or recall prompt]
 BACK: [clear definition, answer, or explanation]

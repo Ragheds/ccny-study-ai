@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from "react";
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { schools } from "../../../data/ccny";
 import catalog from "../../../data/catalog.json";
 import { saveToStorage, loadFromStorage, KEYS } from "@/lib/storage";
@@ -99,8 +99,10 @@ const MAJOR_TO_SECTION: Record<string, string> = {
 export default function CoursePickerPage() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const code = params.code as string;
   const hydrated = useHydrated();
+  const fromAccount = searchParams.get("from") === "account";
 
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<Set<string>>(() => {
@@ -177,7 +179,7 @@ export default function CoursePickerPage() {
 
     saveToStorage(KEYS.MAJOR, { code: major.code, name: major.name, school: major.school });
     saveToStorage(KEYS.COURSES, selectedCourses);
-    router.push("/dashboard");
+    router.push(fromAccount ? "/dashboard/account" : "/dashboard");
   };
 
   if (!hydrated) return <main className="min-h-screen bg-[var(--app-bg)]" />;
@@ -197,39 +199,43 @@ export default function CoursePickerPage() {
 
   return (
     <main className="min-h-screen bg-[var(--app-bg)] text-[var(--app-text)]">
-      <div className="border-b border-[var(--app-border)] bg-[var(--app-nav)] backdrop-blur sticky top-[65px] z-20">
-        <div className="max-w-7xl mx-auto px-6 py-4">
-          <div className="flex items-center gap-3 mb-3">
-            <Link href="/majors" className="text-[var(--app-muted)] hover:text-[var(--app-text)] transition text-sm">
-              ← Majors
-            </Link>
-            <span className="text-[var(--app-muted)]">/</span>
-            <span className="text-sm text-[var(--app-accent)] font-mono">{major.code}</span>
-          </div>
-
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <h1 className="text-2xl font-bold">{major.name}</h1>
-              <p className="text-[var(--app-muted)] text-sm mt-0.5">{major.school}</p>
+      {!fromAccount && (
+        <div className="border-b border-[var(--app-border)] bg-[var(--app-nav)] backdrop-blur sticky top-[65px] z-20">
+          <div className="max-w-7xl mx-auto px-6 py-4">
+            <div className="flex items-center gap-3 mb-3">
+              <Link href="/majors" className="text-[var(--app-muted)] hover:text-[var(--app-text)] transition text-sm">
+                ← Majors
+              </Link>
+              <span className="text-[var(--app-muted)]">/</span>
+              <span className="text-sm text-[var(--app-accent)] font-mono">{major.code}</span>
             </div>
 
-            {selected.size > 0 && (
-              <button
-                onClick={handleSave}
-                className="shrink-0 bg-[var(--app-text)] text-[var(--app-bg)] text-sm font-semibold px-5 py-2.5 rounded-xl transition hover:opacity-90"
-              >
-                Save {selected.size} Course{selected.size !== 1 ? "s" : ""} →
-              </button>
-            )}
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h1 className="text-2xl font-bold">{major.name}</h1>
+                <p className="text-[var(--app-muted)] text-sm mt-0.5">{major.school}</p>
+              </div>
+
+              {selected.size > 0 && (
+                <button
+                  onClick={handleSave}
+                  className="shrink-0 bg-[var(--app-text)] text-[var(--app-bg)] text-sm font-semibold px-5 py-2.5 rounded-xl transition hover:opacity-90"
+                >
+                  Save {selected.size} Course{selected.size !== 1 ? "s" : ""} →
+                </button>
+              )}
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       <div className="max-w-7xl mx-auto px-6 py-8">
         <div className="mb-8">
           <h2 className="text-xl font-bold mb-1">Pick Your Courses</h2>
           <p className="text-[var(--app-muted)] text-sm">
-            Select every course you are taking or have taken. Your AI tools will use these for context.
+            {fromAccount
+              ? `Update the saved courses for ${major.name}.`
+              : "Select every course you are taking or have taken. Your AI tools will use these for context."}
           </p>
         </div>
 
@@ -286,7 +292,10 @@ export default function CoursePickerPage() {
                   style={
                     activeSection === section.section
                       ? { backgroundColor: section.color, borderColor: section.color, color: "white" }
-                      : { borderColor: "rgba(255,255,255,0.1)", color: "#9ca3af" }
+                      : {
+                          borderColor: "var(--app-border)",
+                          color: "var(--app-muted)",
+                        }
                   }
                 >
                   {section.section}
@@ -360,7 +369,7 @@ export default function CoursePickerPage() {
         </div>
       </div>
 
-      {selected.size > 0 && (
+      {(fromAccount || selected.size > 0) && (
         <div className="fixed bottom-0 left-0 right-0 bg-[var(--app-nav)] backdrop-blur border-t border-[var(--app-border)] px-6 py-4 z-30">
           <div className="max-w-7xl mx-auto flex items-center justify-between">
             <p className="text-sm text-[var(--app-muted)]">
@@ -382,7 +391,7 @@ export default function CoursePickerPage() {
                 onClick={handleSave}
                 className="bg-[var(--app-text)] text-[var(--app-bg)] text-sm font-semibold px-6 py-2 rounded-xl transition hover:opacity-90"
               >
-                Save My Courses →
+                {fromAccount ? "Save and Return to Settings →" : "Save My Courses →"}
               </button>
             </div>
           </div>

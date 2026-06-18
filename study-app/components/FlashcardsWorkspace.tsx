@@ -34,8 +34,31 @@ type TutorResponse = {
   error?: string;
 };
 
-function limitToSevenWords(value: string): string {
-  return value.replace(/\s+/g, " ").trimStart().split(" ").filter(Boolean).slice(0, 7).join(" ");
+const FOCUS_WORD_LIMIT = 10;
+
+function limitFocusWords(value: string): string {
+  const normalized = value.replace(/\s+/g, " ").replace(/^\s+/, "");
+  const words = normalized.match(/\S+/g) ?? [];
+
+  if (words.length <= FOCUS_WORD_LIMIT) return normalized;
+
+  let wordCount = 0;
+  let previousWasSpace = true;
+
+  for (let index = 0; index < normalized.length; index += 1) {
+    const isSpace = normalized[index] === " ";
+
+    if (!isSpace && previousWasSpace) {
+      wordCount += 1;
+      if (wordCount > FOCUS_WORD_LIMIT) {
+        return normalized.slice(0, index).trimEnd();
+      }
+    }
+
+    previousWasSpace = isSpace;
+  }
+
+  return normalized;
 }
 
 function getWordCount(value: string): number {
@@ -50,7 +73,7 @@ function buildFlashcardPrompt(
   const cleanFocus = focus.trim();
   const cleanMaterial = uploadedText.trim();
   const focusLine = cleanFocus
-    ? `Focus only on this unit/topic if possible: ${cleanFocus}.`
+    ? `Required focus/topic for every flashcard: ${cleanFocus}. Do not drift into unrelated units unless needed for a definition.`
     : "No specific unit was provided, so cover the most important course concepts.";
 
   if (cleanMaterial) {
@@ -66,6 +89,40 @@ Create exactly ${FLASHCARD_TARGET_COUNT} front/back flashcards for ${course.name
   return `${focusLine}
 
 Create exactly ${FLASHCARD_TARGET_COUNT} front/back flashcards for ${course.name} (${course.code}) using the course context.`;
+}
+
+function getCourseFocusExamples(course: SavedCourse): Array<{ lead: string; rest: string }> {
+  const lowerName = course.name.toLowerCase();
+  const topic = lowerName.includes("comput")
+    ? "computing foundations"
+    : lowerName.includes("program")
+      ? "programming basics"
+      : lowerName.includes("data")
+        ? "data concepts"
+        : lowerName.includes("calculus")
+          ? "calculus examples"
+          : lowerName.includes("english") || lowerName.includes("writing")
+            ? "essay structure"
+            : `${course.code} unit`;
+
+  const concept = lowerName.includes("comput")
+    ? "Computational Science"
+    : lowerName.includes("program")
+      ? "program control flow"
+      : lowerName.includes("data")
+        ? "data modeling"
+        : lowerName.includes("calculus")
+          ? "limits and derivatives"
+          : lowerName.includes("biology")
+            ? "cellular processes"
+            : lowerName.includes("chem")
+              ? "chemical bonding"
+              : course.name;
+
+  return [
+    { lead: "focus", rest: `on the ${topic} part in the PDF I uploaded` },
+    { lead: "explain", rest: `the meaning of ${concept}` },
+  ];
 }
 
 export function FlashcardsWorkspace({
@@ -146,7 +203,7 @@ export function FlashcardsWorkspace({
   };
 
   const handleFocusChange = (value: string) => {
-    setFocus(limitToSevenWords(value));
+    setFocus(limitFocusWords(value));
   };
 
   const handleFileUpload = (event: ChangeEvent<HTMLInputElement>) => {
@@ -338,6 +395,7 @@ export function FlashcardsWorkspace({
         <section className="min-w-0">
           <GenerationPanel
             focus={focus}
+            focusExamples={getCourseFocusExamples(selectedCourse)}
             materialName={materialName}
             showUpload={showUpload}
             uploadedText={uploadedText}
@@ -380,6 +438,7 @@ export function FlashcardsWorkspace({
 
 function GenerationPanel({
   focus,
+  focusExamples,
   loading,
   materialName,
   showUpload,
@@ -393,6 +452,7 @@ function GenerationPanel({
   onUploadedTextChange,
 }: {
   focus: string;
+  focusExamples: Array<{ lead: string; rest: string }>;
   loading: boolean;
   materialName: string;
   showUpload: boolean;
@@ -410,15 +470,43 @@ function GenerationPanel({
       <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
         <label className="block">
           <span className="mb-2 block text-xs font-semibold uppercase tracking-widest text-[var(--app-muted)]">
-            Unit or focus
+            <span className="text-[var(--app-accent)]">Focus</span> topic
           </span>
-          <input
-            value={focus}
-            onChange={(event) => onFocusChange(event.target.value)}
-            placeholder="Loops and conditionals"
-            className="w-full rounded-2xl border border-[var(--app-border)] bg-[var(--app-bg)] px-4 py-3 text-sm text-[var(--app-text)] outline-none transition placeholder:text-[var(--app-muted)] focus:border-[var(--app-border-strong)]"
-          />
-          <span className="mt-1 block text-xs text-[var(--app-muted)]">{wordCount}/7 words</span>
+          <div className="relative">
+            {!focus && (
+              <div className="pointer-events-none absolute inset-x-4 top-1/2 h-5 -translate-y-1/2 overflow-hidden text-sm text-[var(--app-muted)]">
+                {focusExamples.map((example, index) => (
+                  <span
+                    key={`${example.lead}-${example.rest}`}
+                    className={`flashcard-focus-example ${
+                      index === 0 ? "flashcard-focus-example-a" : "flashcard-focus-example-b"
+                    }`}
+                  >
+                    <span
+                      className={
+                        example.lead === "focus"
+                          ? "font-semibold text-[var(--app-accent)]"
+                          : "text-[var(--app-muted)]"
+                      }
+                    >
+                      {example.lead}
+                    </span>{" "}
+                    {example.rest}
+                  </span>
+                ))}
+              </div>
+            )}
+
+            <input
+              value={focus}
+              onChange={(event) => onFocusChange(event.target.value)}
+              aria-label="Flashcard focus topic"
+              className="w-full rounded-2xl border border-[var(--app-border)] bg-[var(--app-bg)] px-4 py-3 text-sm text-[var(--app-text)] outline-none transition placeholder:text-[var(--app-muted)] focus:border-[var(--app-border-strong)]"
+            />
+          </div>
+          <span className="mt-1 block text-xs text-[var(--app-muted)]">
+            {wordCount}/{FOCUS_WORD_LIMIT} words
+          </span>
         </label>
 
         <div className="flex flex-wrap gap-2">
