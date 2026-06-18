@@ -17,7 +17,7 @@ export const STORAGE_CHANGE_EVENT = "ccny-storage-change";
 const ACCOUNT_SCOPE_PREFIX = "ccny_account_scope_v1";
 const LEGACY_STORAGE_OWNER_KEY = "ccny_legacy_storage_owner_v1";
 
-const ACCOUNT_SCOPED_KEYS = new Set<string>([
+export const ACCOUNT_SCOPED_STORAGE_KEYS = [
   KEYS.MAJOR,
   KEYS.COURSES,
   KEYS.CHAT_HISTORY,
@@ -26,7 +26,12 @@ const ACCOUNT_SCOPED_KEYS = new Set<string>([
   KEYS.QUIZ_RESULTS,
   KEYS.FLASHCARDS,
   KEYS.PROGRESS,
-]);
+] as const;
+
+const ACCOUNT_SCOPED_KEYS = new Set<string>(ACCOUNT_SCOPED_STORAGE_KEYS);
+
+export type AccountScopedStorageKey = (typeof ACCOUNT_SCOPED_STORAGE_KEYS)[number];
+export type AccountScopedStorageSnapshot = Partial<Record<AccountScopedStorageKey, unknown>>;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === "object";
@@ -46,7 +51,7 @@ function readRawLocalStorage(key: string): string | null {
   return localStorage.getItem(key);
 }
 
-function getActiveAccountId(): string | null {
+export function getActiveAccountId(): string | null {
   try {
     const raw = readRawLocalStorage(KEYS.ACCOUNT);
     if (!raw) return null;
@@ -118,6 +123,64 @@ export function migrateLegacyStorageToAccount(accountId: string): void {
     }
   } catch (e) {
     console.error("Legacy storage migration error:", e);
+  }
+}
+
+export function loadAccountScopedStorageSnapshot(): AccountScopedStorageSnapshot {
+  const snapshot: AccountScopedStorageSnapshot = {};
+
+  try {
+    if (!canUseStorage()) return snapshot;
+
+    for (const key of ACCOUNT_SCOPED_STORAGE_KEYS) {
+      const raw = localStorage.getItem(getEffectiveStorageKey(key));
+      if (raw === null) continue;
+
+      try {
+        snapshot[key] = JSON.parse(raw) as unknown;
+      } catch (e) {
+        console.error(`Storage snapshot parse error for ${key}:`, e);
+      }
+    }
+  } catch (e) {
+    console.error("Storage snapshot read error:", e);
+  }
+
+  return snapshot;
+}
+
+export function hasAccountScopedStorageData(): boolean {
+  try {
+    if (!canUseStorage()) return false;
+
+    return ACCOUNT_SCOPED_STORAGE_KEYS.some(
+      (key) => localStorage.getItem(getEffectiveStorageKey(key)) !== null
+    );
+  } catch (e) {
+    console.error("Storage data check error:", e);
+    return false;
+  }
+}
+
+export function replaceAccountScopedStorageFromSnapshot(
+  snapshot: AccountScopedStorageSnapshot
+): void {
+  try {
+    if (!canUseStorage()) return;
+
+    for (const key of ACCOUNT_SCOPED_STORAGE_KEYS) {
+      const storageKey = getEffectiveStorageKey(key);
+
+      if (Object.prototype.hasOwnProperty.call(snapshot, key)) {
+        localStorage.setItem(storageKey, JSON.stringify(snapshot[key]));
+      } else {
+        localStorage.removeItem(storageKey);
+      }
+
+      notifyStorageChange(key, storageKey);
+    }
+  } catch (e) {
+    console.error("Storage snapshot hydrate error:", e);
   }
 }
 
