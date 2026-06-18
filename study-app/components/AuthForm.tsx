@@ -2,8 +2,8 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { FormEvent, useState } from "react";
-import { useHydrated, useStoredValue } from "@/hooks/useStoredValue";
+import { FormEvent, useEffect, useState } from "react";
+import { useStoredValue } from "@/hooks/useStoredValue";
 import {
   AccountProfile,
   createAccountProfileFromAuthUser,
@@ -16,6 +16,11 @@ type AuthMode = "login" | "signup";
 
 type AuthFormProps = {
   mode: AuthMode;
+};
+
+type AuthNotice = {
+  type: "error" | "success";
+  message: string;
 };
 
 function getCallbackErrorMessage(): string {
@@ -38,24 +43,79 @@ function getCallbackErrorMessage(): string {
   return messageByCode[authError] ?? "Sign-in failed. Try again.";
 }
 
+function GoogleLogo() {
+  return (
+    <svg aria-hidden="true" className="h-5 w-5 shrink-0" viewBox="0 0 24 24">
+      <path
+        fill="#4285F4"
+        d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+      />
+      <path
+        fill="#34A853"
+        d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+      />
+      <path
+        fill="#FBBC05"
+        d="M5.84 14.1c-.22-.66-.35-1.36-.35-2.1s.13-1.44.35-2.1V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l3.66-2.84z"
+      />
+      <path
+        fill="#EA4335"
+        d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06L5.84 9.9C6.71 7.31 9.14 5.38 12 5.38z"
+      />
+    </svg>
+  );
+}
+
+function AnimatedEmailHint({ hidden }: { hidden: boolean }) {
+  if (hidden) return null;
+
+  return (
+    <span className="auth-email-placeholder" aria-hidden="true">
+      <span className="auth-email-example auth-email-example-a">raghed@example.com</span>
+      <span className="auth-email-example auth-email-example-b">
+        cunylogin@stu-mail.ccny.cuny.edu
+      </span>
+    </span>
+  );
+}
+
 export function AuthForm({ mode }: AuthFormProps) {
   const router = useRouter();
-  const hydrated = useHydrated();
   const [account, setAccount] = useStoredValue<AccountProfile | null>(KEYS.ACCOUNT, null);
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState(getCallbackErrorMessage);
-  const [authLoading, setAuthLoading] = useState<"google" | "email" | null>(null);
+  const [notice, setNotice] = useState<AuthNotice | null>(() => {
+    const callbackError = getCallbackErrorMessage();
+    return callbackError ? { type: "error", message: callbackError } : null;
+  });
+  const [pendingSignupEmail, setPendingSignupEmail] = useState("");
+  const [resendCooldown, setResendCooldown] = useState(0);
+  const [authLoading, setAuthLoading] = useState<
+    "google" | "email" | "resend" | "reset" | null
+  >(null);
   const isSignup = mode === "signup";
 
+  useEffect(() => {
+    if (resendCooldown <= 0) return;
+
+    const timer = window.setTimeout(() => {
+      setResendCooldown((current) => Math.max(current - 1, 0));
+    }, 1000);
+
+    return () => window.clearTimeout(timer);
+  }, [resendCooldown]);
+
   const handleGoogleSignIn = async () => {
-    setError("");
+    setNotice(null);
 
     const supabase = getSupabaseBrowserClient();
     if (!supabase) {
-      setError("Add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY to .env.local.");
+      setNotice({
+        type: "error",
+        message: "Add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY to .env.local.",
+      });
       return;
     }
 
@@ -70,45 +130,125 @@ export function AuthForm({ mode }: AuthFormProps) {
 
     if (googleError) {
       setAuthLoading(null);
-      setError(googleError.message);
+      setNotice({ type: "error", message: googleError.message });
     }
   };
 
-  const handleForgotPassword = () => {
-    setError("Password reset will come after the production email setup is finished.");
+  const handleForgotPassword = async () => {
+    const cleanEmail = email.trim().toLowerCase();
+
+    if (!isValidEmail(cleanEmail)) {
+      setNotice({
+        type: "error",
+        message: "Enter your email first, then tap Forgot your password.",
+      });
+      return;
+    }
+
+    const supabase = getSupabaseBrowserClient();
+    if (!supabase) {
+      setNotice({
+        type: "error",
+        message: "Add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY to .env.local.",
+      });
+      return;
+    }
+
+    setAuthLoading("reset");
+
+    const { error: resetError } = await supabase.auth.resetPasswordForEmail(cleanEmail, {
+      redirectTo: `${window.location.origin}/auth/callback?next=/reset-password`,
+    });
+
+    setAuthLoading(null);
+
+    if (resetError) {
+      setNotice({ type: "error", message: resetError.message });
+      return;
+    }
+
+    setNotice({
+      type: "success",
+      message: `Password reset email sent ✅ Check ${cleanEmail}.`,
+    });
+  };
+
+  const handleResendSignupEmail = async () => {
+    const cleanEmail = (pendingSignupEmail || email).trim().toLowerCase();
+
+    if (!isValidEmail(cleanEmail)) {
+      setNotice({ type: "error", message: "Enter a valid email address first." });
+      return;
+    }
+
+    const supabase = getSupabaseBrowserClient();
+    if (!supabase) {
+      setNotice({
+        type: "error",
+        message: "Add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY to .env.local.",
+      });
+      return;
+    }
+
+    setAuthLoading("resend");
+
+    const { error: resendError } = await supabase.auth.resend({
+      type: "signup",
+      email: cleanEmail,
+      options: {
+        emailRedirectTo: `${window.location.origin}/auth/callback`,
+      },
+    });
+
+    setAuthLoading(null);
+
+    if (resendError) {
+      setNotice({ type: "error", message: resendError.message });
+      return;
+    }
+
+    setPendingSignupEmail(cleanEmail);
+    setResendCooldown(60);
+    setNotice({
+      type: "success",
+      message: `Verification email sent ✅ Check ${cleanEmail}.`,
+    });
   };
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    setError("");
+    setNotice(null);
 
     const cleanFirstName = firstName.replace(/\s+/g, " ").trim();
     const cleanLastName = lastName.replace(/\s+/g, " ").trim();
     const cleanEmail = email.trim().toLowerCase();
 
     if (isSignup && cleanFirstName.length < 2) {
-      setError("Enter your first name.");
+      setNotice({ type: "error", message: "Enter your first name." });
       return;
     }
 
-    if (isSignup && cleanLastName.length < 2) {
-      setError("Enter your last name.");
+    if (isSignup && cleanLastName.length < 1) {
+      setNotice({ type: "error", message: "Enter your last name." });
       return;
     }
 
     if (!isValidEmail(cleanEmail)) {
-      setError("Enter a valid email address.");
+      setNotice({ type: "error", message: "Enter a valid email address." });
       return;
     }
 
     if (password.trim().length < 6) {
-      setError("Enter a password with at least 6 characters.");
+      setNotice({ type: "error", message: "Enter a password with at least 6 characters." });
       return;
     }
 
     const supabase = getSupabaseBrowserClient();
     if (!supabase) {
-      setError("Add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY to .env.local.");
+      setNotice({
+        type: "error",
+        message: "Add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY to .env.local.",
+      });
       return;
     }
 
@@ -129,7 +269,7 @@ export function AuthForm({ mode }: AuthFormProps) {
       setAuthLoading(null);
 
       if (signupError) {
-        setError(signupError.message);
+        setNotice({ type: "error", message: signupError.message });
         return;
       }
 
@@ -139,7 +279,12 @@ export function AuthForm({ mode }: AuthFormProps) {
         return;
       }
 
-      setError("Check your email to finish creating your account.");
+      setPendingSignupEmail(cleanEmail);
+      setResendCooldown(60);
+      setNotice({
+        type: "success",
+        message: `Verification email sent ✅ Check ${cleanEmail}.`,
+      });
       return;
     }
 
@@ -151,7 +296,7 @@ export function AuthForm({ mode }: AuthFormProps) {
     setAuthLoading(null);
 
     if (loginError) {
-      setError(loginError.message);
+      setNotice({ type: "error", message: loginError.message });
       return;
     }
 
@@ -161,13 +306,11 @@ export function AuthForm({ mode }: AuthFormProps) {
     }
   };
 
-  if (!hydrated) return <main className="min-h-screen bg-[#fbfbfb]" />;
-
   if (account) {
     return (
-      <main className="min-h-screen bg-[#fbfbfb] px-6 py-16 text-[#302d2a]">
-        <section className="mx-auto max-w-xl rounded-[1.5rem] border border-[#3d3935] bg-white p-8 text-center shadow-sm">
-          <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-[#6d28ff] text-xl font-black text-white">
+      <main className="auth-page min-h-screen px-6 py-16 text-[#302d2a]">
+        <section className="auth-card mx-auto max-w-xl p-8 text-center">
+          <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-[1.25rem] bg-[#6d28ff] text-xl font-black text-white shadow-[0_18px_40px_rgba(109,40,255,0.22)]">
             {account.initials}
           </div>
           <h1 className="text-4xl font-black tracking-tight">You are signed in</h1>
@@ -193,73 +336,54 @@ export function AuthForm({ mode }: AuthFormProps) {
   }
 
   return (
-    <main className="min-h-screen bg-[#fbfbfb] px-5 py-12 text-[#302d2a] sm:py-14">
-      <section className="mx-auto max-w-[34rem] rounded-[1.5rem] border border-[#3d3935] bg-white p-7 shadow-sm sm:p-9">
-        <h1 className="text-4xl font-black tracking-tight sm:text-5xl">
+    <main className="auth-page flex h-[100dvh] flex-col items-center justify-center gap-3 overflow-hidden px-5 py-3 text-[#302d2a] sm:gap-4 sm:py-6">
+      <section className="auth-card w-full max-w-[26.5rem] p-4 sm:p-6">
+        <h1 className="text-[2rem] font-extrabold leading-none tracking-[-0.03em] sm:text-[2.35rem]">
           {isSignup ? "Sign Up" : "Login"}
         </h1>
-        <p className="mt-5 text-base font-medium text-[#6d6964]">
+        <p className="mt-2 text-[0.88rem] font-medium leading-5 text-[#6d6964] sm:text-[0.95rem]">
           {isSignup
-            ? "Create notes in minutes. No credit card required."
-            : "Create notes in minutes. Free forever. No credit card required."}
+            ? "Study with CCNY Study AI. No credit card required."
+            : "Study with CCNY Study AI. No credit card required."}
         </p>
 
-        <div className="mt-8 grid gap-3">
+        <div className="mt-4">
           <button
             type="button"
             onClick={handleGoogleSignIn}
             disabled={authLoading !== null}
-            className="flex w-full items-center justify-center gap-4 rounded-2xl bg-[#eeeceb] px-5 py-4 text-base font-bold text-[#6d6964] transition hover:bg-[#e6e2e0]"
+            className="auth-provider-button"
           >
-            <span className="text-xl font-black text-[#4285f4]" aria-hidden="true">
-              G
-            </span>
+            <GoogleLogo />
             {authLoading === "google" ? "Opening Google..." : "Continue with Google"}
           </button>
-
-          {!isSignup && (
-              <button
-                type="button"
-                onClick={() => setError("Apple login will come after Google auth and database storage.")}
-                disabled={authLoading !== null}
-                className="flex w-full items-center justify-center gap-4 rounded-2xl bg-[#eeeceb] px-5 py-4 text-base font-bold text-[#6d6964] transition hover:bg-[#e6e2e0]"
-              >
-              <span
-                className="flex h-6 w-6 items-center justify-center rounded-full bg-[#cbc7c3] text-xs font-black text-white"
-                aria-hidden="true"
-              >
-                A
-              </span>
-              Continue with Apple
-            </button>
-          )}
         </div>
 
-        <div className="my-9 flex items-center gap-3">
+        <div className="my-4 flex items-center gap-3">
           <span className="h-px flex-1 bg-[#a9a6a2]" />
-          <span className="text-xl font-medium text-[#6d6964]">OR</span>
+          <span className="text-sm font-medium text-[#6d6964]">OR</span>
           <span className="h-px flex-1 bg-[#a9a6a2]" />
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-5">
+        <form onSubmit={handleSubmit} className="space-y-2.5">
           {isSignup && (
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid grid-cols-2 gap-2.5">
               <label className="block">
-                <span className="mb-2 block text-sm font-bold text-[#6d6964]">First name</span>
+                <span className="mb-1 block text-xs font-bold text-[#6d6964]">First name</span>
                 <input
                   value={firstName}
                   onChange={(event) => setFirstName(event.target.value)}
-                  className="w-full rounded-2xl border-2 border-[#8f96a3] bg-white px-4 py-3 text-base font-medium text-[#302d2a] outline-none transition placeholder:text-[#c6c2be] focus:border-[#6d28ff]"
+                  className="auth-input"
                   placeholder="Raghed"
                 />
               </label>
 
               <label className="block">
-                <span className="mb-2 block text-sm font-bold text-[#6d6964]">Last name</span>
+                <span className="mb-1 block text-xs font-bold text-[#6d6964]">Last name</span>
                 <input
                   value={lastName}
                   onChange={(event) => setLastName(event.target.value)}
-                  className="w-full rounded-2xl border-2 border-[#8f96a3] bg-white px-4 py-3 text-base font-medium text-[#302d2a] outline-none transition placeholder:text-[#c6c2be] focus:border-[#6d28ff]"
+                  className="auth-input"
                   placeholder="Soliman"
                 />
               </label>
@@ -267,53 +391,71 @@ export function AuthForm({ mode }: AuthFormProps) {
           )}
 
           <label className="block">
-            <span className="mb-2 block text-sm font-bold text-[#6d6964]">Email</span>
-            <input
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              className="w-full rounded-2xl border-2 border-[#8f96a3] bg-white px-4 py-3 text-base font-medium text-[#302d2a] outline-none transition placeholder:text-[#c6c2be] focus:border-[#6d28ff]"
-              placeholder="you@citymail.cuny.edu"
-              type="email"
-            />
+            <span className="mb-1 block text-xs font-bold text-[#6d6964]">Email</span>
+            <span className="relative block">
+              <input
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                className={`auth-input ${email.length === 0 ? "auth-input-empty" : ""}`}
+                placeholder=""
+                type="email"
+              />
+              <AnimatedEmailHint hidden={email.length > 0} />
+            </span>
           </label>
 
           <label className="block">
-            <span className="mb-2 flex items-center justify-between gap-3 text-sm font-bold text-[#6d6964]">
+            <span className="mb-1 flex items-center justify-between gap-3 text-xs font-bold text-[#6d6964]">
               Password
               {!isSignup && (
                 <button
                   type="button"
                   onClick={handleForgotPassword}
+                  disabled={authLoading !== null}
                   className="font-bold underline decoration-[#6d6964]/60 underline-offset-2 transition hover:text-[#302d2a]"
                 >
-                  Forgot your password?
+                  {authLoading === "reset" ? "Sending..." : "Forgot your password?"}
                 </button>
               )}
             </span>
             <input
               value={password}
               onChange={(event) => setPassword(event.target.value)}
-              className="w-full rounded-2xl border-2 border-[#8f96a3] bg-white px-4 py-3 text-base font-medium text-[#302d2a] outline-none transition placeholder:text-[#c6c2be] focus:border-[#6d28ff]"
+              className="auth-input"
               type="password"
             />
           </label>
 
-          {error && (
-            <p className="rounded-2xl bg-red-50 px-4 py-3 text-sm font-semibold text-red-600">
-              {error}
-            </p>
+          {notice && (
+            <div className={`auth-notice auth-notice-${notice.type}`}>
+              <p>{notice.message}</p>
+              {notice.type === "success" && isSignup && (
+                <button
+                  type="button"
+                  onClick={handleResendSignupEmail}
+                  disabled={authLoading !== null || resendCooldown > 0}
+                  className="auth-resend-button"
+                >
+                  {authLoading === "resend"
+                    ? "Sending..."
+                    : resendCooldown > 0
+                      ? `Resend in ${resendCooldown}s`
+                      : "Resend email"}
+                </button>
+              )}
+            </div>
           )}
 
           <button
             type="submit"
             disabled={authLoading !== null}
-            className="w-full rounded-2xl bg-[#6d28ff] px-5 py-4 text-base font-black text-white transition hover:bg-[#5b1ee0]"
+            className="auth-submit-button"
           >
             {authLoading === "email" ? "Connecting..." : isSignup ? "Create an account" : "Login"}
           </button>
         </form>
 
-        <p className="mt-10 text-center text-lg font-medium text-[#6d6964]">
+        <p className="mt-4 text-center text-sm font-medium text-[#6d6964]">
           {isSignup ? "Already have an account? " : "Don't have an account? "}
           <Link
             href={isSignup ? "/login" : "/signup"}
@@ -324,13 +466,10 @@ export function AuthForm({ mode }: AuthFormProps) {
         </p>
       </section>
 
-      <p className="mx-auto mt-10 max-w-2xl text-center text-sm font-medium leading-6 text-[#7a756f]">
-        By creating or entering an account, you agree to use CCNY Study AI with Supabase
-        authentication.{" "}
-        <Link href="/" className="font-black text-[#9d7cff] transition hover:text-[#6d28ff]">
-          Learn more about CCNY Study AI
-        </Link>
-        .
+      <p className="auth-legal w-full max-w-[26.5rem] text-center text-[0.72rem] font-medium leading-4 text-[#7a756f] sm:text-xs sm:leading-5">
+        By creating or entering an account, you agree that CCNY Study AI can save your
+        courses, chats, notes, flashcards, and study history to your account.
+        <span className="block font-black text-[#4b4641]">Created by Raghed Soliman.</span>
       </p>
     </main>
   );
