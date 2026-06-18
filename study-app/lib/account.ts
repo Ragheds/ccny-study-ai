@@ -7,6 +7,17 @@ export type AccountProfile = {
   updatedAt: number;
 };
 
+type AuthUserLike = {
+  id: string;
+  email?: string | null;
+  created_at?: string;
+  user_metadata?: {
+    full_name?: unknown;
+    name?: unknown;
+    email?: unknown;
+  } | null;
+};
+
 function createId(): string {
   return `acct_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 }
@@ -41,6 +52,33 @@ export function createAccountProfile(name: string, email: string): AccountProfil
     initials: getAccountInitials(cleanName, cleanEmail),
     createdAt: timestamp,
     updatedAt: timestamp,
+  };
+}
+
+export function createAccountProfileFromAuthUser(user: AuthUserLike): AccountProfile {
+  const email = typeof user.email === "string"
+    ? user.email
+    : typeof user.user_metadata?.email === "string"
+      ? user.user_metadata.email
+      : "";
+  const metadataName = typeof user.user_metadata?.full_name === "string"
+    ? user.user_metadata.full_name
+    : typeof user.user_metadata?.name === "string"
+      ? user.user_metadata.name
+      : "";
+  const fallbackName = email ? email.split("@")[0].replace(/[._-]+/g, " ") : "CCNY Student";
+  const cleanName = (metadataName || fallbackName).replace(/\s+/g, " ").trim();
+  const cleanEmail = email.trim().toLowerCase();
+  const createdAt = user.created_at ? Date.parse(user.created_at) : Date.now();
+  const timestamp = Number.isFinite(createdAt) ? createdAt : Date.now();
+
+  return {
+    id: user.id,
+    name: cleanName,
+    email: cleanEmail,
+    initials: getAccountInitials(cleanName, cleanEmail),
+    createdAt: timestamp,
+    updatedAt: Date.now(),
   };
 }
 

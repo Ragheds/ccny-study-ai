@@ -7,6 +7,7 @@ import { BrandMark } from "@/components/BrandMark";
 import { useStoredValue } from "@/hooks/useStoredValue";
 import { AccountProfile } from "@/lib/account";
 import { KEYS } from "@/lib/storage";
+import { signOutSupabaseUser } from "@/lib/supabase/auth";
 
 const PRIMARY_LINKS = [
   { href: "/dashboard", label: "Dashboard" },
@@ -46,7 +47,8 @@ export default function Navbar() {
     setMenuOpen(false);
     setProfileMenuOpen(false);
   };
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await signOutSupabaseUser();
     setAccount(null);
     closeMenus();
     router.push("/");

@@ -6,10 +6,11 @@ import { FormEvent, useState } from "react";
 import { useHydrated, useStoredValue } from "@/hooks/useStoredValue";
 import {
   AccountProfile,
-  createAccountProfile,
+  createAccountProfileFromAuthUser,
   isValidEmail,
 } from "@/lib/account";
 import { KEYS } from "@/lib/storage";
+import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 
 type AuthMode = "login" | "signup";
 
@@ -17,13 +18,24 @@ type AuthFormProps = {
   mode: AuthMode;
 };
 
-function nameFromEmail(email: string): string {
-  const localPart = email.split("@")[0] || "ccny student";
-  return localPart
-    .replace(/[._-]+/g, " ")
-    .replace(/\s+/g, " ")
-    .trim()
-    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+function getCallbackErrorMessage(): string {
+  if (typeof window === "undefined") return "";
+
+  const params = new URLSearchParams(window.location.search);
+  const providerMessage = params.get("message");
+  if (providerMessage) return providerMessage;
+
+  const authError = params.get("error");
+  if (!authError) return "";
+
+  const messageByCode: Record<string, string> = {
+    missing_code: "Google did not return an auth code. Try signing in again.",
+    provider_error: "Google sign-in failed. Check the provider setup and try again.",
+    oauth_failed: "Google sign-in failed. Check your Supabase and Google redirect URLs.",
+    supabase_not_configured: "Supabase is missing its public URL or anon key.",
+  };
+
+  return messageByCode[authError] ?? "Sign-in failed. Try again.";
 }
 
 export function AuthForm({ mode }: AuthFormProps) {
@@ -34,21 +46,41 @@ export function AuthForm({ mode }: AuthFormProps) {
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
+  const [error, setError] = useState(getCallbackErrorMessage);
+  const [authLoading, setAuthLoading] = useState<"google" | "email" | null>(null);
   const isSignup = mode === "signup";
 
-  const handleUnavailableProvider = (provider: string) => {
-    setError(
-      `${provider} sign-in needs real production authentication. Use email for this local profile.`
-    );
+  const handleGoogleSignIn = async () => {
+    setError("");
+
+    const supabase = getSupabaseBrowserClient();
+    if (!supabase) {
+      setError("Add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY to .env.local.");
+      return;
+    }
+
+    setAuthLoading("google");
+
+    const { error: googleError } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback`,
+      },
+    });
+
+    if (googleError) {
+      setAuthLoading(null);
+      setError(googleError.message);
+    }
   };
 
   const handleForgotPassword = () => {
-    setError("Password reset needs production authentication. Use email for this local profile.");
+    setError("Password reset will come after the production email setup is finished.");
   };
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    setError("");
 
     const cleanFirstName = firstName.replace(/\s+/g, " ").trim();
     const cleanLastName = lastName.replace(/\s+/g, " ").trim();
@@ -74,12 +106,59 @@ export function AuthForm({ mode }: AuthFormProps) {
       return;
     }
 
-    const profileName = isSignup
-      ? `${cleanFirstName} ${cleanLastName}`
-      : nameFromEmail(cleanEmail);
+    const supabase = getSupabaseBrowserClient();
+    if (!supabase) {
+      setError("Add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY to .env.local.");
+      return;
+    }
 
-    setAccount(createAccountProfile(profileName, cleanEmail));
-    router.push("/dashboard");
+    setAuthLoading("email");
+
+    if (isSignup) {
+      const { data, error: signupError } = await supabase.auth.signUp({
+        email: cleanEmail,
+        password,
+        options: {
+          data: {
+            full_name: `${cleanFirstName} ${cleanLastName}`,
+          },
+          emailRedirectTo: `${window.location.origin}/auth/callback`,
+        },
+      });
+
+      setAuthLoading(null);
+
+      if (signupError) {
+        setError(signupError.message);
+        return;
+      }
+
+      if (data.user && data.session) {
+        setAccount(createAccountProfileFromAuthUser(data.user));
+        router.push("/dashboard");
+        return;
+      }
+
+      setError("Check your email to finish creating your account.");
+      return;
+    }
+
+    const { data, error: loginError } = await supabase.auth.signInWithPassword({
+      email: cleanEmail,
+      password,
+    });
+
+    setAuthLoading(null);
+
+    if (loginError) {
+      setError(loginError.message);
+      return;
+    }
+
+    if (data.user) {
+      setAccount(createAccountProfileFromAuthUser(data.user));
+      router.push("/dashboard");
+    }
   };
 
   if (!hydrated) return <main className="min-h-screen bg-[#fbfbfb]" />;
@@ -128,21 +207,23 @@ export function AuthForm({ mode }: AuthFormProps) {
         <div className="mt-8 grid gap-3">
           <button
             type="button"
-            onClick={() => handleUnavailableProvider("Google")}
+            onClick={handleGoogleSignIn}
+            disabled={authLoading !== null}
             className="flex w-full items-center justify-center gap-4 rounded-2xl bg-[#eeeceb] px-5 py-4 text-base font-bold text-[#6d6964] transition hover:bg-[#e6e2e0]"
           >
             <span className="text-xl font-black text-[#4285f4]" aria-hidden="true">
               G
             </span>
-            Continue with Google
+            {authLoading === "google" ? "Opening Google..." : "Continue with Google"}
           </button>
 
           {!isSignup && (
-            <button
-              type="button"
-              onClick={() => handleUnavailableProvider("Apple")}
-              className="flex w-full items-center justify-center gap-4 rounded-2xl bg-[#eeeceb] px-5 py-4 text-base font-bold text-[#6d6964] transition hover:bg-[#e6e2e0]"
-            >
+              <button
+                type="button"
+                onClick={() => setError("Apple login will come after Google auth and database storage.")}
+                disabled={authLoading !== null}
+                className="flex w-full items-center justify-center gap-4 rounded-2xl bg-[#eeeceb] px-5 py-4 text-base font-bold text-[#6d6964] transition hover:bg-[#e6e2e0]"
+              >
               <span
                 className="flex h-6 w-6 items-center justify-center rounded-full bg-[#cbc7c3] text-xs font-black text-white"
                 aria-hidden="true"
@@ -225,9 +306,10 @@ export function AuthForm({ mode }: AuthFormProps) {
 
           <button
             type="submit"
+            disabled={authLoading !== null}
             className="w-full rounded-2xl bg-[#6d28ff] px-5 py-4 text-base font-black text-white transition hover:bg-[#5b1ee0]"
           >
-            {isSignup ? "Create an account" : "Login"}
+            {authLoading === "email" ? "Connecting..." : isSignup ? "Create an account" : "Login"}
           </button>
         </form>
 
@@ -243,8 +325,8 @@ export function AuthForm({ mode }: AuthFormProps) {
       </section>
 
       <p className="mx-auto mt-10 max-w-2xl text-center text-sm font-medium leading-6 text-[#7a756f]">
-        By creating or entering an account, you agree to keep this CCNY Study AI profile in
-        local browser storage.{" "}
+        By creating or entering an account, you agree to use CCNY Study AI with Supabase
+        authentication.{" "}
         <Link href="/" className="font-black text-[#9d7cff] transition hover:text-[#6d28ff]">
           Learn more about CCNY Study AI
         </Link>

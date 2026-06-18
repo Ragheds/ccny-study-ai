@@ -13,6 +13,7 @@ import {
 } from "@/lib/account";
 import { SavedCourse, SavedMajor } from "@/lib/chatWorkspace";
 import { KEYS } from "@/lib/storage";
+import { signOutSupabaseUser } from "@/lib/supabase/auth";
 
 const EMPTY_COURSES: SavedCourse[] = [];
 
@@ -57,7 +58,8 @@ export default function AccountPage() {
     setError("");
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await signOutSupabaseUser();
     setAccount(null);
     router.push("/");
   };
