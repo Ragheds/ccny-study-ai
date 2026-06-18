@@ -36,7 +36,7 @@ export default function LoginPage() {
     }
 
     setAccount(createAccountProfile(cleanName, cleanEmail));
-    router.push("/dashboard/account");
+    router.push("/dashboard");
   };
 
   if (!hydrated) return <main className="min-h-screen bg-[var(--app-bg)]" />;
@@ -87,7 +87,7 @@ export default function LoginPage() {
         </section>
 
         <section className="rounded-3xl border border-[var(--app-border)] bg-[var(--app-surface)] p-6 shadow-sm sm:p-8">
-          <h2 className="text-2xl font-bold">Sign in</h2>
+          <h2 className="text-2xl font-bold">Sign up</h2>
           <p className="mt-2 text-sm text-[var(--app-muted)]">
             Create a local student profile for this device.
           </p>
@@ -124,7 +124,7 @@ export default function LoginPage() {
               type="submit"
               className="w-full rounded-2xl bg-[var(--app-text)] px-5 py-3 text-sm font-semibold text-[var(--app-bg)] transition hover:opacity-90"
             >
-              Continue
+              Create account
             </button>
           </form>
         </section>

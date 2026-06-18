@@ -1,214 +1,275 @@
+"use client";
+
 import Link from "next/link";
+import { useEffect, useState, type CSSProperties } from "react";
+import { useHydrated, useStoredValue } from "@/hooks/useStoredValue";
+import { AccountProfile } from "@/lib/account";
+import { KEYS } from "@/lib/storage";
 
-const FEATURES = [
+const STARS = [
+  { left: 4, top: 20, size: 2, delay: "0s", duration: "4.6s" },
+  { left: 8, top: 74, size: 1, delay: "1.8s", duration: "5.8s" },
+  { left: 12, top: 48, size: 2, delay: "1.2s", duration: "5.2s" },
+  { left: 16, top: 12, size: 1, delay: "2.9s", duration: "6.2s" },
+  { left: 22, top: 36, size: 2, delay: "2.1s", duration: "4.8s" },
+  { left: 27, top: 83, size: 1, delay: "3.1s", duration: "5.5s" },
+  { left: 32, top: 17, size: 2, delay: "0.7s", duration: "5.6s" },
+  { left: 38, top: 68, size: 2, delay: "1.7s", duration: "4.9s" },
+  { left: 43, top: 7, size: 1, delay: "4.1s", duration: "6.4s" },
+  { left: 47, top: 31, size: 3, delay: "0.4s", duration: "5.8s" },
+  { left: 52, top: 88, size: 2, delay: "2.8s", duration: "4.7s" },
+  { left: 57, top: 16, size: 2, delay: "1.1s", duration: "6s" },
+  { left: 61, top: 55, size: 1, delay: "3.6s", duration: "5.1s" },
+  { left: 66, top: 43, size: 2, delay: "0.2s", duration: "4.4s" },
+  { left: 70, top: 23, size: 2, delay: "2.2s", duration: "5.4s" },
+  { left: 74, top: 92, size: 1, delay: "4.8s", duration: "6.1s" },
+  { left: 79, top: 64, size: 3, delay: "1.5s", duration: "5.1s" },
+  { left: 84, top: 79, size: 1, delay: "5.7s", duration: "6.3s" },
+  { left: 88, top: 32, size: 2, delay: "0.9s", duration: "4.5s" },
+  { left: 92, top: 9, size: 1, delay: "3.9s", duration: "5.6s" },
+  { left: 95, top: 52, size: 2, delay: "2.5s", duration: "5.7s" },
+  { left: 98, top: 24, size: 1, delay: "4.7s", duration: "5.4s" },
+];
+
+const INPUT_TILES = [
+  { label: "PDF", className: "home-source-card-a" },
+  { label: "DOC", className: "home-source-card-b" },
+  { label: "TXT", className: "home-source-card-c" },
+  { label: "AUDIO", className: "home-source-card-d" },
+  { label: "NOTES", className: "home-source-card-e" },
+];
+
+const HOW_IT_WORKS = [
   {
-    icon: "🤖",
-    title: "AI Tutor",
-    desc: "Ask anything about your course. Get instant, course-specific answers powered by AI.",
+    title: "Choose your CCNY context",
+    desc: "Pick your major and saved courses so every tool understands what you are studying.",
+    icon: "CC",
   },
   {
-    icon: "📚",
-    title: "Course-Specific Learning",
-    desc: "AI that knows your major, your school, and your exact CCNY course.",
+    title: "Add notes or ask a question",
+    desc: "Upload material, paste lecture notes, or type the exact unit you want to review.",
+    icon: "01",
   },
   {
-    icon: "🎴",
-    title: "Flashcards",
-    desc: "Auto-generate flashcards from your course materials in seconds.",
+    title: "Generate study tools",
+    desc: "Create course-aware tutor answers, flashcards, quizzes, and study summaries.",
+    icon: "AI",
   },
   {
-    icon: "❓",
-    title: "Quiz Generator",
-    desc: "Practice with AI-generated quizzes tailored to your course.",
-  },
-  {
-    icon: "📝",
-    title: "Notes Generator",
-    desc: "Upload lectures or paste notes — get a clean study guide instantly.",
-  },
-  {
-    icon: "📈",
-    title: "Progress Tracking",
-    desc: "Track what you've studied, what quizzes you've taken, and your scores.",
+    title: "Return to your dashboard",
+    desc: "Your courses, chats, flashcards, notes, and progress stay organized in one workspace.",
+    icon: "04",
   },
 ];
 
-const STEPS = [
-  { num: "01", title: "Choose Your Major", desc: "Select from all 71 CCNY undergraduate majors." },
-  { num: "02", title: "Select Your Courses", desc: "Pick the courses you're taking this semester from 2083+ real CCNY courses." },
-  { num: "03", title: "Ask AI Anything", desc: "Get course-specific answers, not generic AI responses." },
-  { num: "04", title: "Generate Study Materials", desc: "Create notes, quizzes, and flashcards from your own materials." },
-];
-
-const BENEFITS = [
-  { title: "Personalized Help", desc: "AI knows your major, school, and course — not just your question." },
-  { title: "Faster Studying", desc: "Get summaries and flashcards in seconds instead of hours." },
-  { title: "Better Exam Prep", desc: "Practice with quizzes built for your exact CCNY course." },
-  { title: "Organized Learning", desc: "All your courses, notes, and progress in one place." },
+const FOOTER_LINKS = [
+  { href: "/dashboard", label: "Dashboard" },
+  { href: "/notes", label: "Notes" },
+  { href: "/progress", label: "Progress" },
+  { href: "https://github.com/Ragheds/ccny-study-ai", label: "GitHub" },
 ];
 
 export default function Home() {
+  const hydrated = useHydrated();
+  const [account] = useStoredValue<AccountProfile | null>(KEYS.ACCOUNT, null);
+  const isSignedIn = hydrated && Boolean(account);
+  const primaryHref = isSignedIn ? "/dashboard" : "/login";
+  const primaryLabel = isSignedIn ? "Dashboard" : "Get Started - It's Free";
+  const [assistantShift, setAssistantShift] = useState(0);
+
+  useEffect(() => {
+    const updateShift = () => {
+      const nextShift = Math.min(44, Math.max(-10, window.scrollY * 0.08 - 6));
+      setAssistantShift(nextShift);
+    };
+
+    updateShift();
+    window.addEventListener("scroll", updateShift, { passive: true });
+
+    return () => window.removeEventListener("scroll", updateShift);
+  }, []);
+
   return (
-    <main className="overflow-hidden bg-[var(--app-bg)] text-[var(--app-text)]">
+    <main className="home-landing relative min-h-screen overflow-hidden bg-[#030405] text-white">
+      <div className="home-space-bg" aria-hidden="true" />
+      <div className="home-star-field" aria-hidden="true">
+        {STARS.map((star) => (
+          <span
+            key={`${star.left}-${star.top}`}
+            className="home-star"
+            style={{
+              left: `${star.left}%`,
+              top: `${star.top}%`,
+              width: `${star.size}px`,
+              height: `${star.size}px`,
+              animationDelay: star.delay,
+              animationDuration: star.duration,
+            }}
+          />
+        ))}
+      </div>
 
-      {/* Hero */}
-      <section className="relative min-h-[90vh] flex items-center justify-center px-6 py-24">
-        <div className="relative z-10 text-center max-w-4xl mx-auto">
-          <div className="inline-flex items-center gap-2 border border-[var(--app-border)] bg-[var(--app-surface-muted)] px-4 py-2 rounded-full text-sm text-[var(--app-muted)] mb-8">
-            <span className="w-2 h-2 rounded-full bg-[var(--app-accent)] animate-pulse" />
-            Built for CCNY Students
-          </div>
-
-          <h1 className="text-6xl md:text-7xl font-bold mb-6 leading-tight tracking-tight">
-            Study Smarter
-            <br />
-            <span className="text-[var(--app-accent)]">
-              at CCNY
-            </span>
-          </h1>
-
-          <p className="text-[var(--app-muted)] text-xl max-w-2xl mx-auto mb-10 leading-relaxed">
-            AI-powered tutoring that knows your major, your courses, and your
-            university. Get instant help, generate study materials, and ace your
-            exams.
+      <section className="relative z-10 mx-auto flex min-h-screen max-w-7xl flex-col px-6 pb-14 pt-28 sm:pt-36">
+        <div className="mx-auto max-w-5xl text-center">
+          <p className="mx-auto mb-6 inline-flex items-center gap-2 rounded-full border border-[#7c4dff]/45 bg-[#180f2f]/80 px-3 py-2.5 text-[11px] font-semibold text-white shadow-[0_0_42px_rgba(124,77,255,0.22)] backdrop-blur sm:mb-8 sm:gap-3 sm:px-5 sm:py-3 sm:text-sm">
+            <span className="home-pulse-dot" />
+            <span className="whitespace-nowrap">Course-aware for CCNY students</span>
+            <span className="text-[#c7a7ff]">→</span>
           </p>
 
-          <div className="flex flex-col sm:flex-row justify-center gap-4">
+          <h1 className="mx-auto max-w-5xl text-[2.8rem] font-extrabold leading-[1.02] tracking-normal text-white min-[430px]:text-[3.2rem] sm:text-6xl lg:text-[5rem]">
+            Meet CCNY Study AI
+          </h1>
+
+          <p className="mx-auto mt-6 max-w-3xl text-xl font-semibold leading-8 text-white/[0.7] sm:mt-8 sm:text-3xl sm:leading-tight">
+            Turn your courses into tutoring, flashcards, quizzes, and more.
+          </p>
+
+          <div className="mt-8 flex flex-col items-center justify-center gap-4 sm:mt-10 sm:flex-row">
             <Link
-              href="/majors"
-              className="bg-[var(--app-text)] text-[var(--app-bg)] font-semibold px-8 py-4 rounded-2xl hover:opacity-90 transition text-lg"
+              href={primaryHref}
+              className="w-full max-w-[17rem] rounded-[1.35rem] bg-[#6f2cff] px-7 py-3.5 text-center text-base font-black text-white shadow-[0_18px_70px_rgba(111,44,255,0.42)] transition hover:bg-[#7c3cff] sm:w-auto sm:px-8 sm:py-4 sm:text-lg"
             >
-              Get Started →
-            </Link>
-            <Link
-              href="#features"
-              className="border border-[var(--app-border)] text-[var(--app-text)] font-medium px-8 py-4 rounded-2xl hover:bg-[var(--app-surface-muted)] transition text-lg"
-            >
-              Explore Features
+              {primaryLabel}
             </Link>
           </div>
+        </div>
 
-          {/* Stats */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mt-20 pt-12 border-t border-[var(--app-border)]">
-            {[
-              { num: "71", label: "Undergraduate Majors" },
-              { num: "2083+", label: "Real CCNY Courses" },
-              { num: "Free", label: "AI Models" },
-              { num: "24/7", label: "Available" },
-            ].map((stat) => (
-              <div key={stat.label}>
-                <p className="text-4xl font-bold text-[var(--app-text)] mb-1">{stat.num}</p>
-                <p className="text-[var(--app-muted)] text-sm">{stat.label}</p>
+        <div className="home-assistant-copy mx-auto mt-16 max-w-4xl text-center text-2xl font-extrabold leading-tight text-white sm:mt-20 sm:text-4xl">
+          <p>Ask questions, review notes, and study like a</p>
+          <span
+            className="home-moving-highlight"
+            style={{ "--home-assistant-shift": `${assistantShift}px` } as CSSProperties}
+          >
+            real assistant.
+            <span className="home-type-cursor" />
+          </span>
+        </div>
+
+        <div id="features" className="home-showcase-card mt-16 rounded-[2rem] border border-[#372d63] bg-[#080914]/78 p-6 shadow-[0_34px_140px_rgba(70,36,180,0.32)] backdrop-blur-xl sm:p-8">
+          <div className="mb-10">
+            <h2 className="text-3xl font-black tracking-normal text-white">
+              Turn class material into study tools.
+            </h2>
+            <p className="mt-4 max-w-2xl text-lg leading-8 text-white/[0.62]">
+              Transform PDFs, notes, and course questions into tutoring, flashcards,
+              quizzes, and study plans built around your CCNY course context.
+            </p>
+          </div>
+
+          <div className="grid min-h-[340px] items-center gap-8 lg:grid-cols-[1fr_220px_1fr]">
+            <div className="home-source-orbit relative mx-auto h-64 w-full max-w-sm">
+              {INPUT_TILES.map((tile) => (
+                <div
+                  key={tile.label}
+                  className={`home-source-card absolute flex h-20 w-20 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.07] text-sm font-black text-white shadow-[0_18px_60px_rgba(0,0,0,0.42)] backdrop-blur ${tile.className}`}
+                >
+                  {tile.label}
+                </div>
+              ))}
+            </div>
+
+            <div className="home-process-line relative mx-auto flex h-32 w-full max-w-sm items-center justify-center">
+              <span className="home-process-ray" />
+              <span className="relative z-10 rounded-full border border-white/10 bg-white/[0.12] px-5 py-3 text-sm font-bold text-white shadow-[0_0_34px_rgba(124,77,255,0.34)] backdrop-blur">
+                Generating...
+              </span>
+            </div>
+
+            <div className="home-output-panel rounded-[1.5rem] border border-white/[0.12] bg-[#121026]/[0.86] p-6 shadow-[0_20px_70px_rgba(0,0,0,0.46)]">
+              <div className="mb-5 flex items-center justify-between gap-4">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-widest text-[#c7a7ff]">
+                    CSC 10300
+                  </p>
+                  <h3 className="mt-2 text-2xl font-black text-white">
+                    Loops study set
+                  </h3>
+                </div>
+                <span className="rounded-full bg-[#6f2cff]/24 px-3 py-1 text-xs font-bold text-[#d9c7ff]">
+                  20 cards
+                </span>
               </div>
-            ))}
+
+              <div className="space-y-3 text-sm leading-6 text-white/[0.64]">
+                <p className="rounded-xl bg-white/[0.055] p-4">
+                  Explain iteration using an intro programming example.
+                </p>
+                <p className="rounded-xl bg-white/[0.055] p-4">
+                  Compare while loops and for loops in pseudocode.
+                </p>
+                <p className="rounded-xl bg-white/[0.055] p-4">
+                  Create a five-question review quiz for loop conditions.
+                </p>
+              </div>
+            </div>
           </div>
         </div>
       </section>
 
-      {/* Features */}
-      <section id="features" className="px-6 py-24 max-w-7xl mx-auto">
-        <div className="text-center mb-16">
-          <p className="text-[var(--app-accent)] font-medium mb-3 text-sm uppercase tracking-widest">Features</p>
-          <h2 className="text-4xl md:text-5xl font-bold mb-4">Everything You Need to Study Smarter</h2>
-          <p className="text-[var(--app-muted)] text-lg max-w-2xl mx-auto">
-            One platform for all your CCNY coursework — powered by AI that actually knows your courses.
+      <section id="how-it-works" className="relative z-10 px-6 py-28">
+        <div className="mx-auto max-w-5xl text-center">
+          <h2 className="text-5xl font-black tracking-normal text-white sm:text-6xl">
+            How It Works - It&apos;s Simple.
+          </h2>
+          <p className="mx-auto mt-6 max-w-3xl text-xl leading-9 text-white/[0.56]">
+            Choose your academic context once, then use the dashboard whenever you need
+            help studying.
           </p>
         </div>
 
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {FEATURES.map((f) => (
-            <div
-              key={f.title}
-              className="group bg-[var(--app-surface)] border border-[var(--app-border)] rounded-2xl p-6 hover:bg-[var(--app-surface-muted)] hover:border-[var(--app-border-strong)] transition"
-            >
-              <div className="text-3xl mb-4">{f.icon}</div>
-              <h3 className="text-xl font-semibold mb-2">{f.title}</h3>
-              <p className="text-[var(--app-muted)] leading-relaxed">{f.desc}</p>
+        <div className="home-steps mx-auto mt-20 grid max-w-3xl gap-16">
+          {HOW_IT_WORKS.map((step, index) => (
+            <div key={step.title} className="relative text-center">
+              <div className="home-step-node mx-auto flex h-32 w-32 items-center justify-center rounded-full border border-[#8d5cff]/50 bg-[#29135a]/72 text-3xl font-black text-[#d3bdff] shadow-[0_0_80px_rgba(111,44,255,0.32)]">
+                {step.icon}
+              </div>
+              <span className="absolute left-1/2 top-0 flex h-10 w-10 -translate-x-[-34px] items-center justify-center rounded-full border border-[#8d5cff]/70 bg-black text-lg font-black text-white">
+                {index + 1}
+              </span>
+              <h3 className="mt-8 text-3xl font-black text-white">{step.title}</h3>
+              <p className="mx-auto mt-4 max-w-xl text-lg leading-8 text-white/[0.56]">
+                {step.desc}
+              </p>
             </div>
           ))}
         </div>
       </section>
 
-      {/* How It Works */}
-      <section className="px-6 py-24 border-t border-[var(--app-border)]">
-        <div className="max-w-7xl mx-auto">
-          <div className="text-center mb-16">
-            <p className="text-[var(--app-accent)] font-medium mb-3 text-sm uppercase tracking-widest">How It Works</p>
-            <h2 className="text-4xl md:text-5xl font-bold mb-4">From Zero to Studying in 4 Steps</h2>
-          </div>
-
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {STEPS.map((step) => (
-              <div key={step.num} className="relative">
-                <div className="text-6xl font-bold text-[var(--app-surface-strong)] mb-4">{step.num}</div>
-                <h3 className="text-xl font-semibold mb-2">{step.title}</h3>
-                <p className="text-[var(--app-muted)] leading-relaxed">{step.desc}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Benefits */}
-      <section className="px-6 py-24 border-t border-[var(--app-border)]">
-        <div className="max-w-7xl mx-auto">
-          <div className="text-center mb-16">
-            <p className="text-[var(--app-accent)] font-medium mb-3 text-sm uppercase tracking-widest">Benefits</p>
-            <h2 className="text-4xl md:text-5xl font-bold mb-4">Why CCNY Students Love It</h2>
-          </div>
-
-          <div className="grid md:grid-cols-2 gap-6">
-            {BENEFITS.map((b) => (
-              <div
-                key={b.title}
-                className="flex gap-4 bg-[var(--app-surface)] border border-[var(--app-border)] rounded-2xl p-6"
-              >
-                <div className="w-2 rounded-full bg-[var(--app-accent)] shrink-0" />
-                <div>
-                  <h3 className="text-lg font-semibold mb-1">{b.title}</h3>
-                  <p className="text-[var(--app-muted)]">{b.desc}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* CTA */}
-      <section className="px-6 py-24 border-t border-[var(--app-border)]">
-        <div className="max-w-3xl mx-auto text-center">
-          <h2 className="text-4xl md:text-5xl font-bold mb-6">
-            Ready to Study Smarter?
-          </h2>
-          <p className="text-[var(--app-muted)] text-lg mb-10">
-            Join CCNY students already using AI to study faster, score higher, and stress less.
-          </p>
-          <Link
-            href="/majors"
-            className="bg-[var(--app-text)] text-[var(--app-bg)] font-semibold px-10 py-4 rounded-2xl hover:opacity-90 transition text-lg inline-block"
-          >
-            Get Started Free →
-          </Link>
-        </div>
-      </section>
-
-      {/* Footer */}
-      <footer className="border-t border-[var(--app-border)] px-6 py-12">
-        <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6">
+      <footer className="relative z-10 border-t border-white/10 px-6 py-12">
+        <div className="mx-auto grid max-w-7xl gap-8 md:grid-cols-[1fr_auto] md:items-end">
           <div>
-            <p className="text-lg font-bold mb-1">CCNY Study AI</p>
-            <p className="text-[var(--app-muted)] text-sm">Built for students at The City College of New York.</p>
+            <Link href="/" className="inline-flex items-center gap-3">
+              <span className="flex h-11 w-11 items-center justify-center rounded-xl border border-white/[0.12] bg-white/[0.07] text-sm font-black text-white">
+                CC
+              </span>
+              <span>
+                <span className="block text-lg font-black text-white">CCNY Study AI</span>
+                <span className="block text-sm text-white/50">
+                  Built for students at The City College of New York.
+                </span>
+              </span>
+            </Link>
+            <p className="mt-5 text-sm font-semibold text-white/[0.58]">
+              Made by Raghed Soliman.
+            </p>
           </div>
-          <div className="flex gap-6 text-sm text-[var(--app-muted)]">
-            <Link href="/majors" className="hover:text-[var(--app-text)] transition">Majors</Link>
-            <Link href="/courses" className="hover:text-[var(--app-text)] transition">Courses</Link>
-            <Link href="/dashboard" className="hover:text-[var(--app-text)] transition">Dashboard</Link>
-            <a href="https://github.com/Ragheds/ccny-study-ai" target="_blank" rel="noopener noreferrer" className="hover:text-[var(--app-text)] transition">GitHub</a>
+
+          <div className="flex flex-wrap gap-4 text-sm font-semibold text-white/[0.58] md:justify-end">
+            {FOOTER_LINKS.map((link) => (
+              <Link
+                key={link.href}
+                href={link.href}
+                target={link.href.startsWith("http") ? "_blank" : undefined}
+                rel={link.href.startsWith("http") ? "noopener noreferrer" : undefined}
+                className="transition hover:text-white"
+              >
+                {link.label}
+              </Link>
+            ))}
           </div>
-          <p className="text-[var(--app-muted)] text-sm">© 2026 CCNY Study AI</p>
         </div>
       </footer>
-
     </main>
   );
 }

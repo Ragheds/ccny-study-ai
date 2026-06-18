@@ -30,6 +30,31 @@ export default function Navbar() {
   const [account] = useStoredValue<AccountProfile | null>(KEYS.ACCOUNT, null);
   const accountHref = account ? "/dashboard/account" : "/login";
   const accountLabel = account ? "Account" : "Sign in";
+  const isHome = pathname === "/";
+
+  if (isHome) {
+    return (
+      <nav className="home-nav-shell fixed left-1/2 top-4 z-50 w-[calc(100%-3rem)] max-w-[36rem] -translate-x-1/2 rounded-[1.7rem] border px-3 py-2 text-white backdrop-blur-xl sm:top-5 sm:w-[78%] sm:px-4 sm:py-2.5 lg:w-[calc(100%-2rem)] lg:max-w-6xl lg:rounded-[2rem] lg:px-7 lg:py-3">
+        <div className="relative flex items-center justify-between gap-4">
+          <Link href="/" className="flex items-center gap-3">
+            <span className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/[0.16] bg-white/[0.1] text-xs font-black text-white shadow-[0_0_24px_rgba(255,255,255,0.1)] sm:h-10 sm:w-10 sm:text-sm">
+              CC
+            </span>
+            <span className="text-sm font-black tracking-normal sm:text-base lg:text-lg">CCNY Study AI</span>
+          </Link>
+
+          <span className="home-nav-haze hidden md:block" aria-hidden="true" />
+
+          <Link
+            href={account ? "/dashboard" : "/login"}
+            className="rounded-2xl border border-white/[0.22] bg-white/[0.08] px-4 py-2 text-sm font-bold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.12)] transition hover:bg-white/[0.13] sm:px-5 sm:py-2.5"
+          >
+            {account ? "Dashboard" : "Start now"}
+          </Link>
+        </div>
+      </nav>
+    );
+  }
 
   return (
     <nav className="sticky top-0 z-50 border-b border-[var(--app-border)] bg-[var(--app-nav)] backdrop-blur">
