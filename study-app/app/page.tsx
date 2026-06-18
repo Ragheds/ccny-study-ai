@@ -69,6 +69,96 @@ const FOOTER_LINKS = [
   { href: "https://github.com/Ragheds/ccny-study-ai", label: "GitHub" },
 ];
 
+function BeaverMascot({ placement }: { placement: "desktop" | "mobile" }) {
+  return (
+    <span className={`home-beaver home-beaver-${placement}`} aria-hidden="true">
+      <svg viewBox="0 0 120 128" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <g className="home-beaver-bob">
+          <ellipse
+            className="home-beaver-tail"
+            cx="27"
+            cy="78"
+            rx="18"
+            ry="31"
+            fill="#6f3f24"
+            stroke="#3f2114"
+            strokeWidth="4"
+            transform="rotate(-29 27 78)"
+          />
+          <path
+            d="M19 60c11 7 18 19 20 35M11 72c10 5 18 14 22 28M24 49c7 8 13 19 16 33"
+            stroke="#3f2114"
+            strokeWidth="3"
+            strokeLinecap="round"
+            opacity="0.5"
+          />
+          <ellipse cx="66" cy="76" rx="32" ry="39" fill="#8a542f" stroke="#452414" strokeWidth="4" />
+          <ellipse cx="67" cy="85" rx="19" ry="24" fill="#d5a876" opacity="0.92" />
+          <circle cx="43" cy="37" r="12" fill="#8a542f" stroke="#452414" strokeWidth="4" />
+          <circle cx="88" cy="37" r="12" fill="#8a542f" stroke="#452414" strokeWidth="4" />
+          <circle cx="66" cy="45" r="29" fill="#9b6338" stroke="#452414" strokeWidth="4" />
+          <path
+            d="M44 31c8-14 35-14 44 0"
+            stroke="#6f2cff"
+            strokeWidth="6"
+            strokeLinecap="round"
+          />
+          <circle cx="55" cy="43" r="4.5" fill="#130b08" />
+          <circle cx="77" cy="43" r="4.5" fill="#130b08" />
+          <ellipse cx="66" cy="53" rx="7" ry="5" fill="#2a120c" />
+          <path d="M56 59c5 7 15 7 20 0" stroke="#2a120c" strokeWidth="3" strokeLinecap="round" />
+          <path d="M61 61h6v10h-6zM68 61h6v10h-6z" fill="#fff8e8" stroke="#6f3f24" strokeWidth="1.5" />
+          <path
+            d="M45 78h42v22c0 8-7 14-14 14H59c-8 0-14-6-14-14V78Z"
+            fill="#233a77"
+            stroke="#14224a"
+            strokeWidth="3"
+          />
+          <text
+            x="66"
+            y="98"
+            textAnchor="middle"
+            fontSize="18"
+            fontWeight="900"
+            fill="#ffffff"
+            fontFamily="Arial, sans-serif"
+          >
+            CC
+          </text>
+          <path
+            className="home-beaver-arm home-beaver-arm-left"
+            d="M39 78c-12 8-16 18-12 25"
+            stroke="#8a542f"
+            strokeWidth="11"
+            strokeLinecap="round"
+          />
+          <path
+            className="home-beaver-arm home-beaver-arm-right"
+            d="M93 78c11 8 15 18 11 25"
+            stroke="#8a542f"
+            strokeWidth="11"
+            strokeLinecap="round"
+          />
+          <path
+            className="home-beaver-leg home-beaver-leg-left"
+            d="M55 112c-4 6-7 9-12 11"
+            stroke="#6f3f24"
+            strokeWidth="10"
+            strokeLinecap="round"
+          />
+          <path
+            className="home-beaver-leg home-beaver-leg-right"
+            d="M77 112c4 6 7 9 12 11"
+            stroke="#6f3f24"
+            strokeWidth="10"
+            strokeLinecap="round"
+          />
+        </g>
+      </svg>
+    </span>
+  );
+}
+
 export default function Home() {
   const hydrated = useHydrated();
   const [account] = useStoredValue<AccountProfile | null>(KEYS.ACCOUNT, null);
@@ -118,7 +208,16 @@ export default function Home() {
           </p>
 
           <h1 className="mx-auto max-w-5xl text-[2.8rem] font-extrabold leading-[1.02] tracking-normal text-white min-[430px]:text-[3.2rem] sm:text-6xl lg:text-[5rem]">
-            Meet CCNY Study AI
+            <span className="home-title-word">Meet</span>{" "}
+            <span className="home-title-word home-title-ccny">
+              CCNY
+              <BeaverMascot placement="mobile" />
+            </span>{" "}
+            <span className="home-title-word">Study</span>{" "}
+            <span className="home-title-word home-title-ai">
+              AI
+              <BeaverMascot placement="desktop" />
+            </span>
           </h1>
 
           <p className="mx-auto mt-6 max-w-3xl text-xl font-semibold leading-8 text-white/[0.7] sm:mt-8 sm:text-3xl sm:leading-tight">
