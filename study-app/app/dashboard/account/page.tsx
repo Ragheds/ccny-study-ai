@@ -164,6 +164,13 @@ export default function AccountPage() {
                   >
                     Log out
                   </button>
+
+                  <Link
+                    href="/reset-password?source=settings"
+                    className="mt-3 flex w-full items-center justify-center rounded-2xl border border-[var(--app-border)] px-5 py-3 text-sm font-semibold text-[var(--app-muted-strong)] transition hover:border-[var(--app-border-strong)] hover:text-[var(--app-text)]"
+                  >
+                    Change password
+                  </Link>
                 </div>
               ) : (
                 <form onSubmit={saveProfile} className="mt-6 space-y-4">

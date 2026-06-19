@@ -37,6 +37,7 @@ export default function Navbar() {
   const accountLabel = account ? "Account" : "Sign in";
   const isHome = pathname === "/";
   const isAuthPage = pathname === "/login" || pathname === "/signup";
+  const isResetPasswordPage = pathname === "/reset-password";
   const scrollHomeToTop = () => {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
@@ -86,99 +87,125 @@ export default function Navbar() {
   return (
     <nav className="sticky top-0 z-50 border-b border-[var(--app-border)] bg-[var(--app-nav)] backdrop-blur">
       <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-6 py-3">
-        <Link
-          href="/dashboard"
-          onClick={openDashboardHome}
-          className="group flex items-center gap-3 transition-opacity duration-200 hover:opacity-80 active:opacity-60"
-          aria-label="Open dashboard home"
-        >
-          <BrandMark size="md" variant="app" />
+        {isResetPasswordPage ? (
+          <div className="flex cursor-default items-center gap-3" aria-label="CCNY Study AI">
+            <BrandMark size="md" variant="app" />
 
-          <span className="leading-tight">
-            <span className="block text-base font-bold tracking-tight text-[var(--app-text)]">
-              CCNY Study AI
+            <span className="leading-tight">
+              <span className="block text-base font-bold tracking-tight text-[var(--app-text)]">
+                CCNY Study AI
+              </span>
+              <span className="hidden text-[11px] font-medium uppercase tracking-widest text-[var(--app-accent)] sm:block">
+                Course-aware workspace
+              </span>
             </span>
-            <span className="hidden text-[11px] font-medium uppercase tracking-widest text-[var(--app-accent)] sm:block">
-              Course-aware workspace
+          </div>
+        ) : (
+          <Link
+            href="/dashboard"
+            onClick={openDashboardHome}
+            className="group flex items-center gap-3 transition-opacity duration-200 hover:opacity-80 active:opacity-60"
+            aria-label="Open dashboard home"
+          >
+            <BrandMark size="md" variant="app" />
+
+            <span className="leading-tight">
+              <span className="block text-base font-bold tracking-tight text-[var(--app-text)]">
+                CCNY Study AI
+              </span>
+              <span className="hidden text-[11px] font-medium uppercase tracking-widest text-[var(--app-accent)] sm:block">
+                Course-aware workspace
+              </span>
             </span>
-          </span>
-        </Link>
+          </Link>
+        )}
 
         <div className="hidden items-center gap-4 lg:flex">
-          <div className="flex items-center gap-1">
-            {PRIMARY_LINKS.map((link) => {
-              const isActive = isActivePath(pathname, link.href);
+          {isResetPasswordPage ? (
+            <Link
+              href="/"
+              className="rounded-lg px-4 py-2 text-sm font-semibold text-[var(--app-muted-strong)] transition hover:bg-[var(--app-surface-muted)] hover:text-[var(--app-text)]"
+            >
+              Home page
+            </Link>
+          ) : (
+            <>
+              <div className="flex items-center gap-1">
+                {PRIMARY_LINKS.map((link) => {
+                  const isActive = isActivePath(pathname, link.href);
 
-              return (
+                  return (
+                    <Link
+                      key={link.href}
+                      href={link.href}
+                      className={`rounded-lg px-3 py-2 text-sm font-medium transition ${
+                        isActive
+                          ? "bg-[var(--app-text)] text-[var(--app-bg)]"
+                          : "text-[var(--app-muted-strong)] hover:bg-[var(--app-surface-muted)] hover:text-[var(--app-text)]"
+                      }`}
+                    >
+                      {link.label}
+                    </Link>
+                  );
+                })}
+              </div>
+
+              <div className="h-6 w-px bg-[var(--app-border)]" />
+
+              {account ? (
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setProfileMenuOpen((value) => !value)}
+                    className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold transition ${
+                      isActivePath(pathname, accountHref)
+                        ? "bg-[var(--app-text)] text-[var(--app-bg)]"
+                        : "text-[var(--app-muted-strong)] hover:bg-[var(--app-surface-muted)] hover:text-[var(--app-text)]"
+                    }`}
+                    aria-expanded={profileMenuOpen}
+                    aria-haspopup="menu"
+                  >
+                    <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[var(--app-accent-soft)] text-[11px] font-black text-[var(--app-accent)]">
+                      {account.initials}
+                    </span>
+                    <span className="max-w-32 truncate">{account.name}</span>
+                  </button>
+
+                  {profileMenuOpen && (
+                    <div className="absolute right-0 top-full z-50 mt-2 w-56 rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface)] p-2 shadow-xl">
+                      <Link
+                        href="/dashboard/account"
+                        onClick={closeMenus}
+                        className="block rounded-xl px-3 py-2 text-sm font-semibold text-[var(--app-muted-strong)] transition hover:bg-[var(--app-surface-muted)] hover:text-[var(--app-text)]"
+                      >
+                        Account Settings
+                      </Link>
+                      <button
+                        type="button"
+                        onClick={handleLogout}
+                        className="mt-1 block w-full rounded-xl px-3 py-2 text-left text-sm font-semibold text-red-500 transition hover:bg-red-500/10"
+                      >
+                        Log out
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ) : (
                 <Link
-                  key={link.href}
-                  href={link.href}
-                  className={`rounded-lg px-3 py-2 text-sm font-medium transition ${
-                    isActive
+                  href="/login"
+                  className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold transition ${
+                    isActivePath(pathname, accountHref)
                       ? "bg-[var(--app-text)] text-[var(--app-bg)]"
                       : "text-[var(--app-muted-strong)] hover:bg-[var(--app-surface-muted)] hover:text-[var(--app-text)]"
                   }`}
                 >
-                  {link.label}
+                  <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[var(--app-accent-soft)] text-[11px] font-black text-[var(--app-accent)]">
+                    SI
+                  </span>
+                  {accountLabel}
                 </Link>
-              );
-            })}
-          </div>
-
-          <div className="h-6 w-px bg-[var(--app-border)]" />
-
-          {account ? (
-            <div className="relative">
-              <button
-                type="button"
-                onClick={() => setProfileMenuOpen((value) => !value)}
-                className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold transition ${
-                  isActivePath(pathname, accountHref)
-                    ? "bg-[var(--app-text)] text-[var(--app-bg)]"
-                    : "text-[var(--app-muted-strong)] hover:bg-[var(--app-surface-muted)] hover:text-[var(--app-text)]"
-                }`}
-                aria-expanded={profileMenuOpen}
-                aria-haspopup="menu"
-              >
-                <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[var(--app-accent-soft)] text-[11px] font-black text-[var(--app-accent)]">
-                  {account.initials}
-                </span>
-                <span className="max-w-32 truncate">{account.name}</span>
-              </button>
-
-              {profileMenuOpen && (
-                <div className="absolute right-0 top-full z-50 mt-2 w-56 rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface)] p-2 shadow-xl">
-                  <Link
-                    href="/dashboard/account"
-                    onClick={closeMenus}
-                    className="block rounded-xl px-3 py-2 text-sm font-semibold text-[var(--app-muted-strong)] transition hover:bg-[var(--app-surface-muted)] hover:text-[var(--app-text)]"
-                  >
-                    Account Settings
-                  </Link>
-                  <button
-                    type="button"
-                    onClick={handleLogout}
-                    className="mt-1 block w-full rounded-xl px-3 py-2 text-left text-sm font-semibold text-red-500 transition hover:bg-red-500/10"
-                  >
-                    Log out
-                  </button>
-                </div>
               )}
-            </div>
-          ) : (
-            <Link
-              href="/login"
-              className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold transition ${
-                isActivePath(pathname, accountHref)
-                  ? "bg-[var(--app-text)] text-[var(--app-bg)]"
-                  : "text-[var(--app-muted-strong)] hover:bg-[var(--app-surface-muted)] hover:text-[var(--app-text)]"
-              }`}
-            >
-              <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[var(--app-accent-soft)] text-[11px] font-black text-[var(--app-accent)]">
-                SI
-              </span>
-              {accountLabel}
-            </Link>
+            </>
           )}
         </div>
 
@@ -208,92 +235,104 @@ export default function Navbar() {
 
       {menuOpen && (
         <div className="border-t border-[var(--app-border)] px-6 py-4 lg:hidden">
-          <div className="mb-4">
-            <p className="mb-2 text-[11px] font-semibold uppercase tracking-widest text-[var(--app-muted)]">
-              Workspace
-            </p>
+          {isResetPasswordPage ? (
+            <Link
+              href="/"
+              onClick={closeMenus}
+              className="block rounded-lg bg-[var(--app-surface-muted)] px-4 py-3 text-sm font-semibold text-[var(--app-muted-strong)] transition hover:text-[var(--app-text)]"
+            >
+              Home page
+            </Link>
+          ) : (
+            <>
+              <div className="mb-4">
+                <p className="mb-2 text-[11px] font-semibold uppercase tracking-widest text-[var(--app-muted)]">
+                  Workspace
+                </p>
 
-            <div className="grid gap-2">
-              {PRIMARY_LINKS.map((link) => {
-                const isActive = isActivePath(pathname, link.href);
+                <div className="grid gap-2">
+                  {PRIMARY_LINKS.map((link) => {
+                    const isActive = isActivePath(pathname, link.href);
 
-                return (
-                  <Link
-                    key={link.href}
-                    href={link.href}
-                    onClick={() => setMenuOpen(false)}
-                    className={`rounded-lg px-4 py-3 text-sm font-medium transition ${
-                      isActive
-                        ? "bg-[var(--app-text)] text-[var(--app-bg)]"
-                        : "bg-[var(--app-surface-muted)] text-[var(--app-muted-strong)] hover:text-[var(--app-text)]"
-                    }`}
-                  >
-                    {link.label}
-                  </Link>
-                );
-              })}
-            </div>
-          </div>
+                    return (
+                      <Link
+                        key={link.href}
+                        href={link.href}
+                        onClick={() => setMenuOpen(false)}
+                        className={`rounded-lg px-4 py-3 text-sm font-medium transition ${
+                          isActive
+                            ? "bg-[var(--app-text)] text-[var(--app-bg)]"
+                            : "bg-[var(--app-surface-muted)] text-[var(--app-muted-strong)] hover:text-[var(--app-text)]"
+                        }`}
+                      >
+                        {link.label}
+                      </Link>
+                    );
+                  })}
+                </div>
+              </div>
 
-          <div className="mt-4">
-            <p className="mb-2 text-[11px] font-semibold uppercase tracking-widest text-[var(--app-muted)]">
-              Account
-            </p>
+              <div className="mt-4">
+                <p className="mb-2 text-[11px] font-semibold uppercase tracking-widest text-[var(--app-muted)]">
+                  Account
+                </p>
 
-            {account ? (
-              <div>
-                <button
-                  type="button"
-                  onClick={() => setProfileMenuOpen((value) => !value)}
-                  className="flex w-full items-center gap-3 rounded-lg bg-[var(--app-surface-muted)] px-4 py-3 text-left text-sm font-medium text-[var(--app-muted-strong)] transition hover:text-[var(--app-text)]"
-                  aria-expanded={profileMenuOpen}
-                  aria-haspopup="menu"
-                >
-                  <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--app-accent-soft)] text-xs font-black text-[var(--app-accent)]">
-                    {account.initials}
-                  </span>
-                  <span className="min-w-0">
-                    <span className="block truncate font-semibold text-[var(--app-text)]">
-                      {account.name}
-                    </span>
-                    <span className="block truncate text-xs text-[var(--app-muted)]">
-                      {account.email}
-                    </span>
-                  </span>
-                </button>
-
-                {profileMenuOpen && (
-                  <div className="mt-2 rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface)] p-2 shadow-sm">
-                    <Link
-                      href="/dashboard/account"
-                      onClick={closeMenus}
-                      className="block rounded-xl px-3 py-2 text-sm font-semibold text-[var(--app-muted-strong)] transition hover:bg-[var(--app-surface-muted)] hover:text-[var(--app-text)]"
-                    >
-                      Account
-                    </Link>
+                {account ? (
+                  <div>
                     <button
                       type="button"
-                      onClick={handleLogout}
-                      className="mt-1 block w-full rounded-xl px-3 py-2 text-left text-sm font-semibold text-red-500 transition hover:bg-red-500/10"
+                      onClick={() => setProfileMenuOpen((value) => !value)}
+                      className="flex w-full items-center gap-3 rounded-lg bg-[var(--app-surface-muted)] px-4 py-3 text-left text-sm font-medium text-[var(--app-muted-strong)] transition hover:text-[var(--app-text)]"
+                      aria-expanded={profileMenuOpen}
+                      aria-haspopup="menu"
                     >
-                      Logout
+                      <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--app-accent-soft)] text-xs font-black text-[var(--app-accent)]">
+                        {account.initials}
+                      </span>
+                      <span className="min-w-0">
+                        <span className="block truncate font-semibold text-[var(--app-text)]">
+                          {account.name}
+                        </span>
+                        <span className="block truncate text-xs text-[var(--app-muted)]">
+                          {account.email}
+                        </span>
+                      </span>
                     </button>
+
+                    {profileMenuOpen && (
+                      <div className="mt-2 rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface)] p-2 shadow-sm">
+                        <Link
+                          href="/dashboard/account"
+                          onClick={closeMenus}
+                          className="block rounded-xl px-3 py-2 text-sm font-semibold text-[var(--app-muted-strong)] transition hover:bg-[var(--app-surface-muted)] hover:text-[var(--app-text)]"
+                        >
+                          Account
+                        </Link>
+                        <button
+                          type="button"
+                          onClick={handleLogout}
+                          className="mt-1 block w-full rounded-xl px-3 py-2 text-left text-sm font-semibold text-red-500 transition hover:bg-red-500/10"
+                        >
+                          Logout
+                        </button>
+                      </div>
+                    )}
                   </div>
+                ) : (
+                  <Link
+                    href="/login"
+                    onClick={closeMenus}
+                    className="flex items-center gap-3 rounded-lg bg-[var(--app-surface-muted)] px-4 py-3 text-sm font-medium text-[var(--app-muted-strong)] transition hover:text-[var(--app-text)]"
+                  >
+                    <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--app-accent-soft)] text-xs font-black text-[var(--app-accent)]">
+                      SI
+                    </span>
+                    Sign in
+                  </Link>
                 )}
               </div>
-            ) : (
-              <Link
-                href="/login"
-                onClick={closeMenus}
-                className="flex items-center gap-3 rounded-lg bg-[var(--app-surface-muted)] px-4 py-3 text-sm font-medium text-[var(--app-muted-strong)] transition hover:text-[var(--app-text)]"
-              >
-                <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--app-accent-soft)] text-xs font-black text-[var(--app-accent)]">
-                  SI
-                </span>
-                Sign in
-              </Link>
-            )}
-          </div>
+            </>
+          )}
         </div>
       )}
     </nav>
