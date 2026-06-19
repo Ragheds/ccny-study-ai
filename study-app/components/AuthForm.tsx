@@ -44,6 +44,23 @@ function getCallbackErrorMessage(): string {
   return messageByCode[authError] ?? "Sign-in failed. Try again.";
 }
 
+function getInitialNotice(): AuthNotice | null {
+  if (typeof window === "undefined") return null;
+
+  const params = new URLSearchParams(window.location.search);
+  const status = params.get("status");
+
+  if (status === "password_changed") {
+    return {
+      type: "success",
+      message: "Your password was updated. Login with your email and new password.",
+    };
+  }
+
+  const callbackError = getCallbackErrorMessage();
+  return callbackError ? { type: "error", message: callbackError } : null;
+}
+
 function GoogleLogo() {
   return (
     <svg aria-hidden="true" className="h-5 w-5 shrink-0" viewBox="0 0 24 24">
@@ -120,10 +137,7 @@ export function AuthForm({ mode }: AuthFormProps) {
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [notice, setNotice] = useState<AuthNotice | null>(() => {
-    const callbackError = getCallbackErrorMessage();
-    return callbackError ? { type: "error", message: callbackError } : null;
-  });
+  const [notice, setNotice] = useState<AuthNotice | null>(() => getInitialNotice());
   const [pendingSignupEmail, setPendingSignupEmail] = useState("");
   const [resendCooldown, setResendCooldown] = useState(0);
   const [authLoading, setAuthLoading] = useState<
@@ -203,7 +217,7 @@ export function AuthForm({ mode }: AuthFormProps) {
 
     setNotice({
       type: "success",
-      message: `Password reset email sent ✅ Check ${cleanEmail}.`,
+      message: `We sent a password reset link to ${cleanEmail}. Open it to choose a new password.`,
     });
   };
 

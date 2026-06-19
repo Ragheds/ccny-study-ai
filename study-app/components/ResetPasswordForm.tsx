@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
 import { useStoredValue } from "@/hooks/useStoredValue";
 import { AccountProfile, createAccountProfileFromAuthUser } from "@/lib/account";
@@ -13,6 +14,7 @@ type ResetNotice = {
 };
 
 export function ResetPasswordForm() {
+  const router = useRouter();
   const [, setAccount] = useStoredValue<AccountProfile | null>(KEYS.ACCOUNT, null);
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -86,15 +88,16 @@ export function ResetPasswordForm() {
       return;
     }
 
-    const { data } = await supabase.auth.getUser();
-    if (data.user) {
-      setAccount(createAccountProfileFromAuthUser(data.user));
-    }
-
+    await supabase.auth.signOut();
+    setAccount(null);
     setLoading(false);
-    setNotice({ type: "success", message: "Password changed ✅ You can return to your dashboard." });
+    setNotice({
+      type: "success",
+      message: "Your password was updated. Login with your email and new password.",
+    });
     setPassword("");
     setConfirmPassword("");
+    router.push("/login?status=password_changed");
   };
 
   return (
@@ -141,10 +144,10 @@ export function ResetPasswordForm() {
 
         <p className="mt-4 text-center text-sm font-medium text-[#6d6964]">
           <Link
-            href="/dashboard"
+            href="/login"
             className="font-bold text-[#4b4641] underline decoration-[#4b4641]/70 underline-offset-2 transition hover:text-[#6d28ff]"
           >
-            Return to dashboard
+            Return to login
           </Link>
         </p>
       </section>
