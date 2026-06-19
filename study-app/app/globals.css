@@ -155,18 +155,19 @@ body:has(.auth-page) {
 
 .auth-notice {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 0.65rem;
   border-radius: 0.82rem;
-  padding: 0.58rem 0.65rem;
+  padding: 0.68rem 0.72rem;
   font-size: 0.76rem;
   font-weight: 800;
-  line-height: 1.25;
+  line-height: 1.35;
 }
 
 .auth-notice p {
   min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .auth-notice span {
@@ -174,9 +175,10 @@ body:has(.auth-page) {
 }
 
 .auth-notice-success {
-  border: 1px solid rgba(5, 150, 105, 0.18);
-  background: #ecfdf5;
-  color: #047857;
+  border: 1px solid rgba(5, 150, 105, 0.2);
+  background: linear-gradient(180deg, #ecfdf5, #f7fffb);
+  color: #066849;
+  box-shadow: 0 10px 26px rgba(5, 150, 105, 0.08);
 }
 
 .auth-notice-error {

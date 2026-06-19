@@ -21,6 +21,7 @@ type AuthFormProps = {
 type AuthNotice = {
   type: "error" | "success";
   message: string;
+  canResendVerification?: boolean;
 };
 
 function getCallbackErrorMessage(): string {
@@ -77,6 +78,39 @@ function AnimatedEmailHint({ hidden }: { hidden: boolean }) {
       </span>
     </span>
   );
+}
+
+function getFriendlyAuthError(message: string): AuthNotice {
+  const lowerMessage = message.toLowerCase();
+
+  if (lowerMessage.includes("email not confirmed")) {
+    return {
+      type: "error",
+      message: "Confirm your email before logging in. Check your inbox or resend the verification email.",
+      canResendVerification: true,
+    };
+  }
+
+  if (lowerMessage.includes("invalid login credentials")) {
+    return {
+      type: "error",
+      message: "Email or password is incorrect. If you just signed up, verify your email first.",
+      canResendVerification: true,
+    };
+  }
+
+  if (lowerMessage.includes("rate limit")) {
+    return {
+      type: "error",
+      message: "Too many email requests. Wait a minute, then try resending.",
+    };
+  }
+
+  return { type: "error", message };
+}
+
+function getVerificationSentMessage(email: string): string {
+  return `We sent a verification link to ${email}.`;
 }
 
 export function AuthForm({ mode }: AuthFormProps) {
@@ -203,7 +237,7 @@ export function AuthForm({ mode }: AuthFormProps) {
     setAuthLoading(null);
 
     if (resendError) {
-      setNotice({ type: "error", message: resendError.message });
+      setNotice(getFriendlyAuthError(resendError.message));
       return;
     }
 
@@ -211,7 +245,8 @@ export function AuthForm({ mode }: AuthFormProps) {
     setResendCooldown(60);
     setNotice({
       type: "success",
-      message: `Verification email sent ✅ Check ${cleanEmail}.`,
+      message: getVerificationSentMessage(cleanEmail),
+      canResendVerification: true,
     });
   };
 
@@ -283,7 +318,8 @@ export function AuthForm({ mode }: AuthFormProps) {
       setResendCooldown(60);
       setNotice({
         type: "success",
-        message: `Verification email sent ✅ Check ${cleanEmail}.`,
+        message: getVerificationSentMessage(cleanEmail),
+        canResendVerification: true,
       });
       return;
     }
@@ -296,7 +332,11 @@ export function AuthForm({ mode }: AuthFormProps) {
     setAuthLoading(null);
 
     if (loginError) {
-      setNotice({ type: "error", message: loginError.message });
+      const friendlyError = getFriendlyAuthError(loginError.message);
+      if (friendlyError.canResendVerification) {
+        setPendingSignupEmail(cleanEmail);
+      }
+      setNotice(friendlyError);
       return;
     }
 
@@ -429,7 +469,7 @@ export function AuthForm({ mode }: AuthFormProps) {
           {notice && (
             <div className={`auth-notice auth-notice-${notice.type}`}>
               <p>{notice.message}</p>
-              {notice.type === "success" && isSignup && (
+              {notice.canResendVerification && pendingSignupEmail && (
                 <button
                   type="button"
                   onClick={handleResendSignupEmail}
