@@ -90,7 +90,7 @@ function detectRoute(message: string, action: string): keyof typeof ROUTERS {
 
   if (reasoningKeywords.some((keyword) => lower.includes(keyword))) return "reasoning";
 
-  if (["quiz", "flashcards", "studyguide"].includes(action)) return "reasoning";
+  if (["quiz", "flashcards", "studyguide", "summary"].includes(action)) return "reasoning";
 
   if (message.length > 300) return "reasoning";
 
@@ -220,7 +220,14 @@ Include:
 2. Important Theories or Methods
 3. Common Examples
 4. Things to Remember for Exams
-Make it specific for a ${major} student at ${school}.` : ""}`.trim();
+Make it specific for a ${major} student at ${school}.` : ""}
+
+${action === "summary" ? `Summarize the student's notes for ${course} (${courseCode}).
+Structure your response as:
+1. Key Concepts (short bullet list)
+2. Important Definitions, Formulas, or Facts (short bullet list)
+3. A short plain-English summary paragraph
+Only use information that is actually present in the notes provided below. Do not invent or assume details that aren't there.` : ""}`.trim();
 
     const routeKey = detectRoute(message, action);
     const models = ROUTERS[routeKey];
