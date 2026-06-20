@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 import { BrandMark } from "@/components/BrandMark";
+import { ProfileAvatar } from "@/components/ProfileAvatar";
 import { useStoredValue } from "@/hooks/useStoredValue";
 import { AccountProfile } from "@/lib/account";
 import { KEYS } from "@/lib/storage";
@@ -165,9 +166,7 @@ export default function Navbar() {
                     aria-expanded={profileMenuOpen}
                     aria-haspopup="menu"
                   >
-                    <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[var(--app-accent-soft)] text-[11px] font-black text-[var(--app-accent)]">
-                      {account.initials}
-                    </span>
+                    <ProfileAvatar account={account} size="sm" />
                     <span className="max-w-32 truncate">{account.name}</span>
                   </button>
 
@@ -286,9 +285,7 @@ export default function Navbar() {
                       aria-expanded={profileMenuOpen}
                       aria-haspopup="menu"
                     >
-                      <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--app-accent-soft)] text-xs font-black text-[var(--app-accent)]">
-                        {account.initials}
-                      </span>
+                      <ProfileAvatar account={account} size="md" />
                       <span className="min-w-0">
                         <span className="block truncate font-semibold text-[var(--app-text)]">
                           {account.name}

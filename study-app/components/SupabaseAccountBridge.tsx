@@ -23,7 +23,8 @@ function accountsMatch(current: AccountProfile | null, next: AccountProfile): bo
     current &&
       current.id === next.id &&
       current.email === next.email &&
-      current.name === next.name
+      current.name === next.name &&
+      current.avatarUrl === next.avatarUrl
   );
 }
 

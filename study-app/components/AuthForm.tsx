@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
+import { ProfileAvatar } from "@/components/ProfileAvatar";
 import { useStoredValue } from "@/hooks/useStoredValue";
 import {
   AccountProfile,
@@ -364,9 +365,11 @@ export function AuthForm({ mode }: AuthFormProps) {
     return (
       <main className="auth-page min-h-screen px-6 py-16 text-[#302d2a]">
         <section className="auth-card mx-auto max-w-xl p-8 text-center">
-          <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-[1.25rem] bg-[#6d28ff] text-xl font-black text-white shadow-[0_18px_40px_rgba(109,40,255,0.22)]">
-            {account.initials}
-          </div>
+          <ProfileAvatar
+            account={account}
+            size="lg"
+            className="mx-auto mb-5 bg-[#6d28ff] text-white shadow-[0_18px_40px_rgba(109,40,255,0.22)]"
+          />
           <h1 className="text-4xl font-black tracking-tight">You are signed in</h1>
           <p className="mt-2 text-base text-[#6d6964]">{account.email}</p>
 

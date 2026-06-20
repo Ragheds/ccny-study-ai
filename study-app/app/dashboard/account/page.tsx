@@ -2,20 +2,120 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { FormEvent, useState } from "react";
+import { ChangeEvent, FormEvent, useState } from "react";
+import { ProfileAvatar } from "@/components/ProfileAvatar";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { useHydrated, useStoredValue } from "@/hooks/useStoredValue";
 import {
   AccountProfile,
   formatAccountDate,
+  isCompactAvatarUrl,
   isValidEmail,
+  updateAccountAvatar,
   updateAccountProfile,
 } from "@/lib/account";
 import { SavedCourse, SavedMajor } from "@/lib/chatWorkspace";
 import { KEYS } from "@/lib/storage";
 import { signOutSupabaseUser } from "@/lib/supabase/auth";
+import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 
 const EMPTY_COURSES: SavedCourse[] = [];
+const AVATAR_BUCKET = "avatars";
+const MAX_AVATAR_FILE_BYTES = 8 * 1024 * 1024;
+const AVATAR_MAX_DIMENSION = 512;
+
+type Notice = {
+  type: "success" | "error";
+  message: string;
+};
+
+function createProfileMetadata(name: string, avatarUrl?: string) {
+  return {
+    full_name: name,
+    name,
+    avatar_url: isCompactAvatarUrl(avatarUrl) ? avatarUrl : null,
+  };
+}
+
+async function loadImage(file: File): Promise<HTMLImageElement> {
+  const objectUrl = URL.createObjectURL(file);
+
+  try {
+    return await new Promise((resolve, reject) => {
+      const image = new window.Image();
+      image.onload = () => resolve(image);
+      image.onerror = () => reject(new Error("Could not read that image. Try another file."));
+      image.src = objectUrl;
+    });
+  } finally {
+    window.setTimeout(() => URL.revokeObjectURL(objectUrl), 0);
+  }
+}
+
+async function compressAvatarFile(file: File): Promise<Blob> {
+  if (!file.type.startsWith("image/")) {
+    throw new Error("Choose an image file for your profile photo.");
+  }
+
+  if (file.size > MAX_AVATAR_FILE_BYTES) {
+    throw new Error("Choose an image under 8 MB.");
+  }
+
+  const image = await loadImage(file);
+  const width = image.naturalWidth || image.width;
+  const height = image.naturalHeight || image.height;
+  const scale = Math.min(AVATAR_MAX_DIMENSION / width, AVATAR_MAX_DIMENSION / height, 1);
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.max(1, Math.round(width * scale));
+  canvas.height = Math.max(1, Math.round(height * scale));
+
+  const context = canvas.getContext("2d");
+  if (!context) {
+    throw new Error("Your browser could not prepare that image.");
+  }
+
+  context.drawImage(image, 0, 0, canvas.width, canvas.height);
+
+  return await new Promise((resolve, reject) => {
+    canvas.toBlob(
+      (blob) => {
+        if (blob) resolve(blob);
+        else reject(new Error("Your browser could not prepare that image."));
+      },
+      "image/jpeg",
+      0.86
+    );
+  });
+}
+
+async function uploadAvatarFile(
+  supabase: NonNullable<ReturnType<typeof getSupabaseBrowserClient>>,
+  accountId: string,
+  file: File
+): Promise<string> {
+  const avatarBlob = await compressAvatarFile(file);
+  const { data: userData } = await supabase.auth.getUser();
+  const ownerId = userData.user?.id ?? accountId;
+  const filePath = `${ownerId}/profile.jpg`;
+  const { error: uploadError } = await supabase.storage
+    .from(AVATAR_BUCKET)
+    .upload(filePath, avatarBlob, {
+      cacheControl: "3600",
+      contentType: "image/jpeg",
+      upsert: true,
+    });
+
+  if (uploadError) {
+    throw new Error("Could not upload your photo. Create a public Supabase Storage bucket named avatars, then try again.");
+  }
+
+  const { data } = supabase.storage.from(AVATAR_BUCKET).getPublicUrl(filePath);
+  if (!data.publicUrl) {
+    throw new Error("Could not read the uploaded photo URL.");
+  }
+
+  return `${data.publicUrl}?v=${Date.now()}`;
+}
 
 export default function AccountPage() {
   const router = useRouter();
@@ -27,18 +127,22 @@ export default function AccountPage() {
   const [draftName, setDraftName] = useState("");
   const [draftEmail, setDraftEmail] = useState("");
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState<Notice | null>(null);
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [savingAvatar, setSavingAvatar] = useState(false);
 
   const beginEdit = () => {
     if (!account) return;
     setDraftName(account.name);
     setDraftEmail(account.email);
     setError("");
+    setNotice(null);
     setEditing(true);
   };
 
-  const saveProfile = (event: FormEvent<HTMLFormElement>) => {
+  const saveProfile = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!account) return;
+    if (!account || savingProfile) return;
 
     const cleanName = draftName.replace(/\s+/g, " ").trim();
     const cleanEmail = draftEmail.trim().toLowerCase();
@@ -53,9 +157,80 @@ export default function AccountPage() {
       return;
     }
 
-    setAccount(updateAccountProfile(account, cleanName, cleanEmail));
-    setEditing(false);
+    const supabase = getSupabaseBrowserClient();
+    if (!supabase) {
+      setError("Account updates are unavailable right now.");
+      return;
+    }
+
+    const emailChanged = cleanEmail !== account.email;
+
+    setSavingProfile(true);
     setError("");
+    setNotice(null);
+
+    const updatePayload = emailChanged
+      ? { email: cleanEmail, data: createProfileMetadata(cleanName, account.avatarUrl) }
+      : { data: createProfileMetadata(cleanName, account.avatarUrl) };
+
+    const { data, error: updateError } = await supabase.auth.updateUser(updatePayload, {
+      emailRedirectTo: `${window.location.origin}/auth/callback?next=/dashboard/account`,
+    });
+
+    setSavingProfile(false);
+
+    if (updateError) {
+      setError(updateError.message);
+      return;
+    }
+
+    const confirmedEmail = data.user?.email?.trim().toLowerCase() || account.email;
+    setAccount(updateAccountProfile(account, cleanName, confirmedEmail, account.avatarUrl));
+    setEditing(false);
+    setNotice({
+      type: "success",
+      message: emailChanged
+        ? `We sent a confirmation link to ${cleanEmail}. Open it to finish changing your account email.`
+        : "Profile updated.",
+    });
+  };
+
+  const handleAvatarChange = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+
+    if (!file || !account || savingAvatar) return;
+
+    const supabase = getSupabaseBrowserClient();
+    if (!supabase) {
+      setNotice({ type: "error", message: "Profile photos are unavailable right now." });
+      return;
+    }
+
+    setSavingAvatar(true);
+    setError("");
+    setNotice(null);
+
+    try {
+      const avatarUrl = await uploadAvatarFile(supabase, account.id, file);
+      const { error: updateError } = await supabase.auth.updateUser({
+        data: createProfileMetadata(account.name, avatarUrl),
+      });
+
+      if (updateError) throw updateError;
+
+      setAccount(updateAccountAvatar(account, avatarUrl));
+      setNotice({ type: "success", message: "Profile photo updated." });
+    } catch (avatarError) {
+      setNotice({
+        type: "error",
+        message: avatarError instanceof Error
+          ? avatarError.message
+          : "Could not update your profile photo.",
+      });
+    } finally {
+      setSavingAvatar(false);
+    }
   };
 
   const handleLogout = async () => {
@@ -111,9 +286,35 @@ export default function AccountPage() {
           <section className="overflow-hidden rounded-3xl border border-[var(--app-border)] bg-[var(--app-surface)] shadow-sm">
             <div className="h-32 bg-[var(--app-accent-soft)]" />
             <div className="-mt-14 px-6 pb-6">
-              <div className="flex h-28 w-28 items-center justify-center rounded-full border-4 border-[var(--app-surface)] bg-[var(--app-accent)] text-4xl font-black text-white shadow-sm">
-                {account.initials}
+              <div className="relative inline-flex">
+                <ProfileAvatar
+                  account={account}
+                  size="xl"
+                  className="border-4 border-[var(--app-surface)] shadow-sm"
+                />
+                <label className="absolute -bottom-2 -right-3 cursor-pointer rounded-full border border-[var(--app-border)] bg-[var(--app-surface)] px-3 py-2 text-[11px] font-black text-[var(--app-text)] shadow-sm transition hover:border-[var(--app-border-strong)]">
+                  {savingAvatar ? "Saving" : "Photo"}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="sr-only"
+                    onChange={handleAvatarChange}
+                    disabled={savingAvatar}
+                  />
+                </label>
               </div>
+
+              {notice && (
+                <div
+                  className={`mt-5 rounded-2xl border px-4 py-3 text-sm font-semibold ${
+                    notice.type === "success"
+                      ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-700"
+                      : "border-red-500/30 bg-red-500/10 text-red-600"
+                  }`}
+                >
+                  {notice.message}
+                </div>
+              )}
 
               {!editing ? (
                 <div className="mt-6">
@@ -195,6 +396,12 @@ export default function AccountPage() {
                       className="w-full rounded-2xl border border-[var(--app-border)] bg-[var(--app-bg)] px-4 py-3 text-sm outline-none focus:border-[var(--app-border-strong)]"
                       type="email"
                     />
+                    {draftEmail.trim().toLowerCase() !== account.email && (
+                      <span className="mt-2 block text-xs leading-5 text-[var(--app-muted)]">
+                        We will send a confirmation link to the new email. The login email changes
+                        after the link is confirmed.
+                      </span>
+                    )}
                   </label>
 
                   {error && <p className="text-sm text-red-500">{error}</p>}
@@ -202,16 +409,21 @@ export default function AccountPage() {
                   <div className="grid grid-cols-2 gap-3">
                     <button
                       type="button"
-                      onClick={() => setEditing(false)}
+                      onClick={() => {
+                        setEditing(false);
+                        setError("");
+                      }}
+                      disabled={savingProfile}
                       className="rounded-2xl border border-[var(--app-border)] px-4 py-3 text-sm font-semibold text-[var(--app-muted-strong)]"
                     >
                       Cancel
                     </button>
                     <button
                       type="submit"
-                      className="rounded-2xl bg-[var(--app-text)] px-4 py-3 text-sm font-semibold text-[var(--app-bg)]"
+                      disabled={savingProfile}
+                      className="rounded-2xl bg-[var(--app-text)] px-4 py-3 text-sm font-semibold text-[var(--app-bg)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
                     >
-                      Save
+                      {savingProfile ? "Saving..." : "Save"}
                     </button>
                   </div>
                 </form>

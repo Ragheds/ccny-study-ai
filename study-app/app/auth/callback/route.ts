@@ -6,6 +6,10 @@ function safeNextPath(value: string | null): string {
   return value;
 }
 
+function hasOversizedAvatarMetadata(value: unknown): value is string {
+  return typeof value === "string" && (value.startsWith("data:") || value.length >= 2048);
+}
+
 export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url);
   const code = requestUrl.searchParams.get("code");
@@ -37,6 +41,18 @@ export async function GET(request: NextRequest) {
 
   if (error) {
     return NextResponse.redirect(new URL("/login?error=oauth_failed", requestUrl.origin));
+  }
+
+  const { data } = await supabase.auth.getUser();
+  const metadata = data.user?.user_metadata;
+  if (metadata && hasOversizedAvatarMetadata(metadata.avatar_url)) {
+    await supabase.auth.updateUser({
+      data: {
+        full_name: metadata.full_name ?? metadata.name ?? null,
+        name: metadata.name ?? metadata.full_name ?? null,
+        avatar_url: null,
+      },
+    });
   }
 
   return NextResponse.redirect(new URL(next, requestUrl.origin));

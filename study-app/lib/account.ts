@@ -3,6 +3,7 @@ export type AccountProfile = {
   name: string;
   email: string;
   initials: string;
+  avatarUrl?: string;
   createdAt: number;
   updatedAt: number;
 };
@@ -15,8 +16,14 @@ type AuthUserLike = {
     full_name?: unknown;
     name?: unknown;
     email?: unknown;
+    avatar_url?: unknown;
+    picture?: unknown;
   } | null;
 };
+
+export function isCompactAvatarUrl(value: unknown): value is string {
+  return typeof value === "string" && value.length > 0 && value.length < 2048 && !value.startsWith("data:");
+}
 
 function createId(): string {
   return `acct_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
@@ -69,6 +76,11 @@ export function createAccountProfileFromAuthUser(user: AuthUserLike): AccountPro
   const fallbackName = email ? email.split("@")[0].replace(/[._-]+/g, " ") : "CCNY Student";
   const cleanName = (metadataName || fallbackName).replace(/\s+/g, " ").trim();
   const cleanEmail = email.trim().toLowerCase();
+  const metadataAvatar = isCompactAvatarUrl(user.user_metadata?.avatar_url)
+    ? user.user_metadata.avatar_url
+    : isCompactAvatarUrl(user.user_metadata?.picture)
+      ? user.user_metadata.picture
+      : undefined;
   const createdAt = user.created_at ? Date.parse(user.created_at) : Date.now();
   const timestamp = Number.isFinite(createdAt) ? createdAt : Date.now();
 
@@ -77,6 +89,7 @@ export function createAccountProfileFromAuthUser(user: AuthUserLike): AccountPro
     name: cleanName,
     email: cleanEmail,
     initials: getAccountInitials(cleanName, cleanEmail),
+    avatarUrl: metadataAvatar,
     createdAt: timestamp,
     updatedAt: Date.now(),
   };
@@ -85,7 +98,8 @@ export function createAccountProfileFromAuthUser(user: AuthUserLike): AccountPro
 export function updateAccountProfile(
   account: AccountProfile,
   name: string,
-  email: string
+  email: string,
+  avatarUrl = account.avatarUrl
 ): AccountProfile {
   const cleanName = name.replace(/\s+/g, " ").trim();
   const cleanEmail = email.trim().toLowerCase();
@@ -95,6 +109,18 @@ export function updateAccountProfile(
     name: cleanName,
     email: cleanEmail,
     initials: getAccountInitials(cleanName, cleanEmail),
+    avatarUrl,
+    updatedAt: Date.now(),
+  };
+}
+
+export function updateAccountAvatar(
+  account: AccountProfile,
+  avatarUrl: string
+): AccountProfile {
+  return {
+    ...account,
+    avatarUrl: isCompactAvatarUrl(avatarUrl) ? avatarUrl : undefined,
     updatedAt: Date.now(),
   };
 }
