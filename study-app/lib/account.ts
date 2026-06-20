@@ -4,6 +4,7 @@ export type AccountProfile = {
   email: string;
   initials: string;
   avatarUrl?: string;
+  bannerColor?: string;
   createdAt: number;
   updatedAt: number;
 };
@@ -121,6 +122,17 @@ export function updateAccountAvatar(
   return {
     ...account,
     avatarUrl: isCompactAvatarUrl(avatarUrl) ? avatarUrl : undefined,
+    updatedAt: Date.now(),
+  };
+}
+
+export function updateAccountBannerColor(
+  account: AccountProfile,
+  bannerColor: string
+): AccountProfile {
+  return {
+    ...account,
+    bannerColor,
     updatedAt: Date.now(),
   };
 }
