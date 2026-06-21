@@ -19,6 +19,12 @@ import { KEYS } from "@/lib/storage";
 import { signOutSupabaseUser } from "@/lib/supabase/auth";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 
+type ProfileOverride = {
+  name?: string;
+  avatarUrl?: string;
+};
+
+const EMPTY_PROFILE_OVERRIDE: ProfileOverride = {};
 const EMPTY_COURSES: SavedCourse[] = [];
 const AVATAR_BUCKET = "avatars";
 const MAX_AVATAR_FILE_BYTES = 8 * 1024 * 1024;
@@ -30,11 +36,21 @@ type Notice = {
 };
 
 function createProfileMetadata(name: string, avatarUrl?: string) {
-  return {
+  const metadata: { full_name: string; name: string; avatar_url?: string } = {
     full_name: name,
     name,
-    avatar_url: isCompactAvatarUrl(avatarUrl) ? avatarUrl : null,
   };
+
+  // Only include avatar_url when we actually have one. Supabase treats an
+  // explicit `null` here as "delete this field" (it merges everything else,
+  // but a null value wipes that key from auth.users.raw_user_meta_data for
+  // every device). Omitting the key entirely leaves whatever is already
+  // saved untouched.
+  if (isCompactAvatarUrl(avatarUrl)) {
+    metadata.avatar_url = avatarUrl;
+  }
+
+  return metadata;
 }
 
 async function loadImage(file: File): Promise<HTMLImageElement> {
@@ -121,6 +137,10 @@ export default function AccountPage() {
   const router = useRouter();
   const hydrated = useHydrated();
   const [account, setAccount] = useStoredValue<AccountProfile | null>(KEYS.ACCOUNT, null);
+  const [, setProfileOverride] = useStoredValue<ProfileOverride>(
+    KEYS.PROFILE,
+    EMPTY_PROFILE_OVERRIDE
+  );
   const [major] = useStoredValue<SavedMajor | null>(KEYS.MAJOR, null);
   const [courses] = useStoredValue(KEYS.COURSES, EMPTY_COURSES);
   const [editing, setEditing] = useState(false);
@@ -186,6 +206,7 @@ export default function AccountPage() {
 
     const confirmedEmail = data.user?.email?.trim().toLowerCase() || account.email;
     setAccount(updateAccountProfile(account, cleanName, confirmedEmail, account.avatarUrl));
+    setProfileOverride({ name: cleanName, avatarUrl: account.avatarUrl });
     setEditing(false);
     setNotice({
       type: "success",
@@ -220,6 +241,7 @@ export default function AccountPage() {
       if (updateError) throw updateError;
 
       setAccount(updateAccountAvatar(account, avatarUrl));
+      setProfileOverride({ name: account.name, avatarUrl });
       setNotice({ type: "success", message: "Profile photo updated." });
     } catch (avatarError) {
       setNotice({

@@ -3,6 +3,7 @@
 
 export const KEYS = {
   ACCOUNT: "ccny_account",
+  PROFILE: "ccny_profile",
   MAJOR: "ccny_major",
   COURSES: "ccny_courses",
   CHAT_HISTORY: "ccny_chat_history",
@@ -18,6 +19,7 @@ const ACCOUNT_SCOPE_PREFIX = "ccny_account_scope_v1";
 const LEGACY_STORAGE_OWNER_KEY = "ccny_legacy_storage_owner_v1";
 
 export const ACCOUNT_SCOPED_STORAGE_KEYS = [
+  KEYS.PROFILE,
   KEYS.MAJOR,
   KEYS.COURSES,
   KEYS.CHAT_HISTORY,
