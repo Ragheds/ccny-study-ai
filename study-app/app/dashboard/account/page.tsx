@@ -19,6 +19,7 @@ import { SavedCourse, SavedMajor } from "@/lib/chatWorkspace";
 import { KEYS } from "@/lib/storage";
 import { signOutSupabaseUser } from "@/lib/supabase/auth";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+import { removeFromStorage, ACCOUNT_SCOPED_STORAGE_KEYS, KEYS as STORAGE_KEYS } from "@/lib/storage";
 
 type ProfileOverride = {
   name?: string;
@@ -154,6 +155,9 @@ export default function AccountPage() {
   const [toastHiding, setToastHiding] = useState(false);
   const [savingProfile, setSavingProfile] = useState(false);
   const [savingAvatar, setSavingAvatar] = useState(false);
+  const [showDeleteStage, setShowDeleteStage] = useState(0); // 0=hidden,1=confirm,2=final,3=goodbye
+  const [deleting, setDeleting] = useState(false);
+  const [deletionError, setDeletionError] = useState<string | null>(null);
   const [pillVisible, setPillVisible] = useState(true);
   const [showColors, setShowColors] = useState(false);
   const [bannerFading, setBannerFading] = useState(false);
@@ -340,6 +344,56 @@ export default function AccountPage() {
     setAccount(null);
     router.push("/");
   };
+
+  async function performAccountDeletion() {
+    if (!account || deleting) return;
+    setDeletionError(null);
+    setDeleting(true);
+
+    try {
+      const res = await fetch(`/api/account/delete`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: account.id }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data?.error || "Deletion failed");
+      }
+
+      // show goodbye stage
+      setShowDeleteStage(3);
+
+      // wait for farewell animation then clear client state
+      window.setTimeout(async () => {
+        // remove account scoped localStorage
+        try {
+          for (const key of ACCOUNT_SCOPED_STORAGE_KEYS) {
+            removeFromStorage(key);
+          }
+          removeFromStorage(STORAGE_KEYS.ACCOUNT);
+        } catch (e) {
+          // ignore local cleanup errors
+        }
+
+        // sign out client and clear account in UI
+        try {
+          await signOutSupabaseUser();
+        } catch (e) {
+          // ignore
+        }
+        setAccount(null);
+        router.push("/");
+      }, 2400);
+    } catch (err: any) {
+      console.error("Account deletion error:", err);
+      setDeletionError(err?.message ?? String(err));
+      setShowDeleteStage(0);
+    } finally {
+      setDeleting(false);
+    }
+  }
 
   if (!hydrated) return <main className="min-h-screen bg-[var(--app-bg)]" />;
 
@@ -528,12 +582,35 @@ export default function AccountPage() {
                     Log out
                   </button>
 
-                  <Link
-                    href="/reset-password?source=settings"
-                    className="mt-3 flex w-full items-center justify-center rounded-2xl border border-[var(--app-border)] px-5 py-3 text-sm font-semibold text-[var(--app-muted-strong)] transition hover:border-[var(--app-border-strong)] hover:text-[var(--app-text)]"
-                  >
-                    Change password
-                  </Link>
+                  {isGoogleManaged ? (
+                    <div className="mt-3 flex w-full items-center justify-center rounded-2xl border border-[var(--app-border)] px-5 py-3 text-sm font-semibold text-[var(--app-muted)]">
+                      <svg className="mr-2 h-4 w-4 opacity-80" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
+                        <path d="M44.5 20H24v8.5h11.8C34.3 32.6 29.6 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.2 0 6.1 1.2 8.4 3.2l6-6C34.7 3.8 29.6 2 24 2 12.3 2 3 11.3 3 23s9.3 21 21 21c10.9 0 20-8 21-19-0.1-1.2-0.5-2.4-1.5-4z" fill="#4285F4" />
+                      </svg>
+                      <span>Password managed by Google</span>
+                    </div>
+                  ) : (
+                    <Link
+                      href="/reset-password?source=settings"
+                      className="mt-3 flex w-full items-center justify-center rounded-2xl border border-[var(--app-border)] px-5 py-3 text-sm font-semibold text-[var(--app-muted-strong)] transition hover:border-[var(--app-border-strong)] hover:text-[var(--app-text)]"
+                    >
+                      Change password
+                    </Link>
+                  )}
+
+                  {/* Danger zone: Delete account */}
+                  <div className="mt-6 rounded-2xl border border-red-500/30 bg-gradient-to-br from-red-50/6 to-transparent p-4">
+                    <p className="text-xs font-semibold uppercase tracking-widest text-red-400">Danger Zone</p>
+                    <h3 className="mt-2 text-lg font-bold text-red-500">Delete Account</h3>
+                    <p className="mt-1 text-sm text-[var(--app-muted)]">Permanently delete your account and all associated data. This action cannot be undone.</p>
+                    <button
+                      type="button"
+                      onClick={() => setShowDeleteStage(1)}
+                      className="mt-4 w-full rounded-2xl border border-red-500/40 bg-red-600/5 px-4 py-3 text-sm font-semibold text-red-500 hover:bg-red-600/10"
+                    >
+                      Delete Account
+                    </button>
+                  </div>
                 </div>
               ) : (
                 <form onSubmit={saveProfile} className="mt-6 space-y-4">
@@ -672,6 +749,78 @@ export default function AccountPage() {
           </section>
         </div>
       </div>
+
+      {showDeleteStage > 0 && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => { if (!deleting) setShowDeleteStage(0); }} />
+
+          <div className="relative z-10 mx-4 w-full max-w-2xl rounded-2xl bg-[linear-gradient(135deg,#0b122030,#0b122020)] p-8 text-center shadow-2xl">
+            {showDeleteStage === 1 && (
+              <div>
+                <h2 className="text-3xl font-bold">Are you sure?</h2>
+                <p className="mt-3 text-sm text-[var(--app-muted)]">Deleting your account will permanently remove your profile, study history, notes, progress, and conversations.</p>
+
+                <div className="mt-6 flex gap-3 justify-center">
+                  <button
+                    type="button"
+                    onClick={() => setShowDeleteStage(0)}
+                    className="rounded-2xl border border-[var(--app-border)] px-5 py-3 text-sm font-semibold text-[var(--app-muted-strong)]"
+                    disabled={deleting}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowDeleteStage(2)}
+                    className="rounded-2xl bg-red-600 px-5 py-3 text-sm font-semibold text-white"
+                    disabled={deleting}
+                  >
+                    Delete Account
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {showDeleteStage === 2 && (
+              <div>
+                <h2 className="text-3xl font-bold">We&apos;ll miss you 😕</h2>
+                <p className="mt-3 text-sm text-[var(--app-muted)]">Before you go, remember that deleting your account is permanent and cannot be reversed.</p>
+
+                {deletionError && <p className="mt-3 text-sm text-red-400">{deletionError}</p>}
+
+                <div className="mt-6 flex gap-3 justify-center">
+                  <button
+                    type="button"
+                    onClick={() => setShowDeleteStage(0)}
+                    className="rounded-2xl border border-[var(--app-border)] px-5 py-3 text-sm font-semibold text-[var(--app-muted-strong)]"
+                    disabled={deleting}
+                  >
+                    Stay
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => performAccountDeletion()}
+                    className="rounded-2xl bg-red-600 px-5 py-3 text-sm font-semibold text-white"
+                    disabled={deleting}
+                  >
+                    {deleting ? "Deleting..." : "Continue"}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {showDeleteStage === 3 && (
+              <div className="space-y-4 py-6">
+                <div className="mx-auto h-28 w-28 animate-pulse rounded-full bg-gradient-to-br from-red-400 to-pink-400/80 shadow-lg" />
+                <h2 className="text-3xl font-bold">Goodbye 😭</h2>
+                <p className="mt-1 text-sm text-[var(--app-muted)]">Thank you for being part of CCNY Study AI.
+                  <br />Your account has been removed successfully. Come back any time. We&apos;ll be here for you.</p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
     </main>
   );
 }
