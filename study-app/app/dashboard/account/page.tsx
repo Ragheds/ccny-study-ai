@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ChangeEvent, FormEvent, useState } from "react";
+import { ChangeEvent, FormEvent, useState, useEffect, useRef } from "react";
 import { ProfileAvatar } from "@/components/ProfileAvatar";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { useHydrated, useStoredValue } from "@/hooks/useStoredValue";
@@ -13,6 +13,7 @@ import {
   isValidEmail,
   updateAccountAvatar,
   updateAccountProfile,
+  updateAccountBannerColor,
 } from "@/lib/account";
 import { SavedCourse, SavedMajor } from "@/lib/chatWorkspace";
 import { KEYS } from "@/lib/storage";
@@ -148,8 +149,18 @@ export default function AccountPage() {
   const [draftEmail, setDraftEmail] = useState("");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState<Notice | null>(null);
+  const [isGoogleManaged, setIsGoogleManaged] = useState(false);
+  const [toastVisible, setToastVisible] = useState(false);
+  const [toastHiding, setToastHiding] = useState(false);
   const [savingProfile, setSavingProfile] = useState(false);
   const [savingAvatar, setSavingAvatar] = useState(false);
+  const [pillVisible, setPillVisible] = useState(true);
+  const [showColors, setShowColors] = useState(false);
+  const [bannerFading, setBannerFading] = useState(false);
+
+  const toastTimerRef = useRef<number | null>(null);
+  const toastExitRef = useRef<number | null>(null);
+  const pillTimerRef = useRef<number | null>(null);
 
   const beginEdit = () => {
     if (!account) return;
@@ -159,6 +170,75 @@ export default function AccountPage() {
     setNotice(null);
     setEditing(true);
   };
+
+  const colorOptions = [
+    "#0f172a", // slate-900
+    "#2563eb", // blue-600
+    "#06b6d4", // cyan-500
+    "#7c3aed", // purple-600
+    "#f97316", // orange-500
+    "#ef4444", // red-500
+    "#ff9ccf", // pink-ish
+  ];
+
+  // detect google-managed via Supabase user identities when component mounts
+  useEffect(() => {
+    const supabase = getSupabaseBrowserClient();
+    if (!supabase) return;
+    let mounted = true;
+    (async () => {
+      try {
+        const { data } = await supabase.auth.getUser();
+        const user = data.user as any | null;
+        if (!user) return;
+        const identities = user.identities as Array<any> | undefined;
+        const google = (identities || []).some((i) => i?.provider === "google")
+          || (user?.app_metadata?.provider === "google");
+        if (mounted) setIsGoogleManaged(Boolean(google));
+      } catch (e) {
+        // ignore
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  // show animated toast when `notice` changes, auto-hide after 2.5s then slide out
+  useEffect(() => {
+    if (!notice) return;
+    // clear any existing timers
+    if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current);
+    if (toastExitRef.current) window.clearTimeout(toastExitRef.current);
+
+    setToastHiding(false);
+    setToastVisible(true);
+
+    // stay visible for 2500ms, then play exit animation (~420ms), then clear notice
+    toastTimerRef.current = window.setTimeout(() => {
+      setToastHiding(true);
+      toastExitRef.current = window.setTimeout(() => {
+        setToastVisible(false);
+        setToastHiding(false);
+        setNotice(null);
+      }, 420);
+    }, 2500);
+
+    return () => {
+      if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current);
+      if (toastExitRef.current) window.clearTimeout(toastExitRef.current);
+    };
+  }, [notice]);
+
+  // auto-hide the change-color pill after 5s of inactivity
+  useEffect(() => {
+    if (!pillVisible) return;
+    if (pillTimerRef.current) window.clearTimeout(pillTimerRef.current);
+    pillTimerRef.current = window.setTimeout(() => setPillVisible(false), 5000);
+    return () => {
+      if (pillTimerRef.current) window.clearTimeout(pillTimerRef.current);
+    };
+  }, [pillVisible]);
 
   const saveProfile = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -306,7 +386,64 @@ export default function AccountPage() {
 
         <div className="grid gap-6 lg:grid-cols-[360px_minmax(0,1fr)]">
           <section className="overflow-hidden rounded-3xl border border-[var(--app-border)] bg-[var(--app-surface)] shadow-sm">
-            <div className="h-32 bg-[var(--app-accent-soft)]" />
+            <div
+              className={`relative h-32 ${bannerFading ? "banner-fade-out" : "banner-fade-in"}`}
+              onClick={() => {
+                setPillVisible(true);
+                setShowColors(false);
+              }}
+              style={{ background: account.bannerColor ?? "var(--app-accent-soft)", transition: "background-color 420ms ease" }}
+            >
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                {pillVisible && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowColors((s) => !s);
+                      setPillVisible(true);
+                    }}
+                    className="banner-color-pill bg-[var(--app-surface)] text-[var(--app-text)] border border-[var(--app-border)] shadow-sm pointer-events-auto"
+                  >
+                    Change Color
+                  </button>
+                )}
+              </div>
+
+              {showColors && (
+                <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-3 pointer-events-auto">
+                  {colorOptions.map((c) => (
+                    <button
+                      key={c}
+                      title={c}
+                      onClick={async (ev) => {
+                        ev.stopPropagation();
+                        setBannerFading(true);
+                        // brief fade then update
+                        window.setTimeout(async () => {
+                          try {
+                            const supabase = getSupabaseBrowserClient();
+                            if (supabase) {
+                              await supabase.auth.updateUser({ data: { banner_color: c } });
+                            }
+                          } catch (e) {
+                            // ignore persistence error
+                          }
+                          setAccount((acct) => (acct ? updateAccountBannerColor(acct, c) : acct));
+                          setShowColors(false);
+                          setNotice({ type: "success", message: "Banner color updated." });
+                          setBannerFading(false);
+                        }, 260);
+                      }}
+                      className={`color-swatch ${account.bannerColor === c ? "color-swatch-selected" : ""}`}
+                      style={{ background: c }}
+                    >
+                      {account.bannerColor === c && <span className="text-xs font-bold text-[var(--app-bg)]">✓</span>}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
             <div className="-mt-14 px-6 pb-6">
               <div className="relative inline-flex">
                 <ProfileAvatar
@@ -326,15 +463,18 @@ export default function AccountPage() {
                 </label>
               </div>
 
-              {notice && (
+              {/* Animated toast */}
+              {(toastVisible || notice) && (
                 <div
-                  className={`mt-5 rounded-2xl border px-4 py-3 text-sm font-semibold ${
-                    notice.type === "success"
+                  className={`mt-5 rounded-2xl border px-4 py-3 text-sm font-semibold profile-toast ${
+                    toastVisible && !toastHiding ? "profile-toast--in" : "profile-toast--out"
+                  } ${
+                    notice?.type === "success"
                       ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-700"
                       : "border-red-500/30 bg-red-500/10 text-red-600"
                   }`}
                 >
-                  {notice.message}
+                  {notice?.message}
                 </div>
               )}
 
@@ -415,13 +555,20 @@ export default function AccountPage() {
                     <input
                       value={draftEmail}
                       onChange={(event) => setDraftEmail(event.target.value)}
+                      disabled={isGoogleManaged}
+                      placeholder={isGoogleManaged ? "Managed by Google" : undefined}
                       className="w-full rounded-2xl border border-[var(--app-border)] bg-[var(--app-bg)] px-4 py-3 text-sm outline-none focus:border-[var(--app-border-strong)]"
                       type="email"
                     />
-                    {draftEmail.trim().toLowerCase() !== account.email && (
+                    {draftEmail.trim().toLowerCase() !== account.email && !isGoogleManaged && (
                       <span className="mt-2 block text-xs leading-5 text-[var(--app-muted)]">
                         We will send a confirmation link to the new email. The login email changes
                         after the link is confirmed.
+                      </span>
+                    )}
+                    {isGoogleManaged && (
+                      <span className="mt-2 block text-xs leading-5 text-[var(--app-muted)]">
+                        This account is managed by Google; email cannot be changed here.
                       </span>
                     )}
                   </label>

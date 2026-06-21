@@ -82,6 +82,12 @@ export function createAccountProfileFromAuthUser(user: AuthUserLike): AccountPro
     : isCompactAvatarUrl(user.user_metadata?.picture)
       ? user.user_metadata.picture
       : undefined;
+  const metadataAny = user.user_metadata as any | undefined;
+  const metadataBanner = typeof metadataAny?.banner_color === "string"
+    ? metadataAny.banner_color
+    : typeof metadataAny?.bannerColor === "string"
+      ? metadataAny.bannerColor
+      : undefined;
   const createdAt = user.created_at ? Date.parse(user.created_at) : Date.now();
   const timestamp = Number.isFinite(createdAt) ? createdAt : Date.now();
 
@@ -91,6 +97,7 @@ export function createAccountProfileFromAuthUser(user: AuthUserLike): AccountPro
     email: cleanEmail,
     initials: getAccountInitials(cleanName, cleanEmail),
     avatarUrl: metadataAvatar,
+    bannerColor: metadataBanner,
     createdAt: timestamp,
     updatedAt: Date.now(),
   };
