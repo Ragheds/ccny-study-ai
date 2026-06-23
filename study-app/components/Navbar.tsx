@@ -12,10 +12,6 @@ import { signOutSupabaseUser } from "@/lib/supabase/auth";
 
 const PRIMARY_LINKS = [
   { href: "/dashboard", label: "Dashboard" },
-  { href: "/dashboard?tab=ai", label: "AI Tutor" },
-  { href: "/notes", label: "Notes" },
-  { href: "/progress", label: "Progress" },
-  { href: "/dashboard/account", label: "Settings" },
 ];
 
 function isActivePath(pathname: string, href: string): boolean {
