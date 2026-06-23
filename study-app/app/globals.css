@@ -365,161 +365,6 @@ body:has(.auth-page) {
   }
 }
 
-/* Profile toast animation (slide in from right, slight bounce, slide out + fade) */
-@keyframes profile-toast-in {
-  0% { transform: translateX(120%); opacity: 0; }
-  70% { transform: translateX(-6%); opacity: 1; }
-  85% { transform: translateX(2%); }
-  100% { transform: translateX(0); }
-}
-
-@keyframes profile-toast-out {
-  0% { transform: translateX(0); opacity: 1; }
-  100% { transform: translateX(120%); opacity: 0; }
-}
-
-.profile-toast {
-  transition: opacity 360ms cubic-bezier(.2,.9,.28,1), transform 360ms cubic-bezier(.2,.9,.28,1);
-  will-change: transform, opacity;
-}
-
-.profile-toast--in {
-  animation: profile-toast-in 540ms cubic-bezier(.2,.9,.28,1) both;
-}
-
-.profile-toast--out {
-  animation: profile-toast-out 420ms ease both;
-}
-
-/* Banner color transition helper (fade then swap) */
-@keyframes banner-fade-out {
-  from { opacity: 1; }
-  to { opacity: 0.06; }
-}
-@keyframes banner-fade-in {
-  from { opacity: 0.06; }
-}
-
-/* Compact premium modal + animated elements */
-.modal-overlay {
-  animation: modal-fade 220ms ease both;
-  background: linear-gradient(180deg, rgba(2,6,23,0.45), rgba(2,6,23,0.55));
-}
-
-@keyframes modal-fade {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-
-.modal-card {
-  border-radius: 14px;
-  box-shadow: 0 10px 40px rgba(2,6,23,0.5), 0 2px 8px rgba(2,6,23,0.08);
-  transform: translateY(6px) scale(0.995);
-  animation: modal-pop 260ms cubic-bezier(.2,.9,.28,1) both;
-}
-
-@keyframes modal-pop {
-  to { transform: translateY(0) scale(1); }
-}
-
-.modal-icon { width: 64px; height: 64px; }
-.warning-icon {
-  width: 36px; height: 36px; border-radius: 50%;
-  background: conic-gradient(from 220deg, #ffb86b, #ff6b6b, #ff3b6b);
-  box-shadow: 0 8px 20px rgba(255,90,90,0.15), inset 0 -6px 20px rgba(255,255,255,0.12);
-  position: relative;
-}
-.warning-icon::after {
-  content: '!';
-  color: white; font-weight: 800; font-size: 18px;
-  position: absolute; inset: 0; display:flex; align-items:center; justify-content:center;
-  transform-origin: center; animation: icon-breathe 2200ms ease-in-out infinite;
-}
-@keyframes icon-breathe { 0% { transform: scale(1);} 50% { transform: scale(1.06);} 100% { transform: scale(1);} }
-
-.animate-list-fade { animation: list-fade 360ms ease forwards; }
-@keyframes list-fade { from { opacity: 0; transform: translateY(6px);} to { opacity: 1; transform: translateY(0);} }
-
-.keep-btn { background: linear-gradient(90deg, rgba(16,24,40,1), rgba(44,53,70,1)); color: white; border: none; }
-.keep-btn:hover { transform: translateY(-2px); }
-.delete-btn { background: transparent; }
-
-.progress-line { width: 0%; height: 100%; background: linear-gradient(90deg, rgba(124,58,237,0.95), rgba(59,130,246,0.9)); transition: width 600ms linear; }
-.progress-line-active { width: 100%; }
-
-/* Crying sphere */
-.sphere {
-  width: 160px; height: 160px; border-radius: 999px; position: relative; overflow: visible;
-  background: radial-gradient(circle at 30% 20%, rgba(255,255,255,0.5), transparent 20%), linear-gradient(135deg, #60a5fa, #8b5cf6 40%, #ec4899 80%);
-  display: flex; align-items: center; justify-content: center;
-  box-shadow: 0 18px 50px rgba(99,102,241,0.12), 0 6px 18px rgba(74,222,128,0.04) inset;
-  animation: sphere-float 5200ms ease-in-out infinite, sphere-rotate 14000ms linear infinite, sphere-color 9000ms ease-in-out infinite;
-}
-
-@keyframes sphere-float { 0% { transform: translateY(0);} 50% { transform: translateY(-10px);} 100% { transform: translateY(0);} }
-@keyframes sphere-rotate { 0% { transform: rotate(0deg);} 100% { transform: rotate(360deg);} }
-@keyframes sphere-color {
-  0% { filter: hue-rotate(0deg); }
-  50% { filter: hue-rotate(30deg) saturate(1.05); }
-  100% { filter: hue-rotate(0deg); }
-}
-
-.sphere .eye { width: 36px; height: 10px; border-radius: 10px; background: rgba(0,0,0,0.12); position: absolute; top: 58px; }
-.sphere .eye.left { left: 46px; transform: rotate(-6deg); }
-.sphere .eye.right { right: 46px; transform: rotate(6deg); }
-
-.sphere .tear { position: absolute; width: 10px; height: 18px; background: linear-gradient(180deg, rgba(255,255,255,0.9), rgba(173,216,230,0.85)); border-radius: 10px; opacity: 0.95; }
-.sphere .tear.t1 { left: 60px; top: 78px; animation: tear-fall 2200ms linear infinite; }
-.sphere .tear.t2 { left: 84px; top: 78px; animation: tear-fall 2600ms linear infinite 350ms; transform-origin: top; }
-@keyframes tear-fall { 0% { transform: translateY(0) scaleY(0.95); opacity: 0.95;} 70% { transform: translateY(22px) scaleY(1); opacity: 0.55;} 100% { transform: translateY(34px) scaleY(0.85); opacity: 0; } }
-
-.particles { position: absolute; inset: -10px; pointer-events: none; }
-.particles .p { position: absolute; width: 6px; height: 6px; border-radius: 50%; background: rgba(255,255,255,0.06); box-shadow: 0 6px 20px rgba(99,102,241,0.08); }
-.particles .p1 { left: 6%; top: 12%; animation: pfloat 6000ms linear infinite; }
-.particles .p2 { right: 8%; top: 18%; animation: pfloat 7200ms linear infinite 600ms; }
-.particles .p3 { left: 20%; bottom: 6%; animation: pfloat 8200ms linear infinite 1100ms; }
-.particles .p4 { right: 22%; bottom: 14%; animation: pfloat 9400ms linear infinite 300ms; }
-@keyframes pfloat { 0% { transform: translateY(0) scale(0.9); opacity: 0.8;} 50% { transform: translateY(-8px) scale(1.05); opacity: 1;} 100% { transform: translateY(0) scale(0.95); opacity: 0.7;} }
-
-@media (prefers-reduced-motion: reduce) {
-  .warning-icon, .sphere, .particles, .animate-list-fade, .modal-card { animation: none !important; transition: none !important; }
-  .progress-line { transition: none; }
-}
-
-.banner-fade-out {
-  animation: banner-fade-out 240ms ease forwards;
-}
-.banner-fade-in {
-  animation: banner-fade-in 360ms ease forwards;
-}
-
-/* Color picker pill */
-.banner-color-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: .5rem;
-  padding: .4rem .7rem;
-  border-radius: 999px;
-  font-weight: 800;
-}
-
-.color-swatch {
-  width: 1.25rem;
-  height: 1.25rem;
-  border-radius: 999px;
-  box-shadow: 0 1px 0 rgba(0,0,0,0.12) inset;
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.color-swatch-selected {
-  outline: 3px solid white;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.12);
-}
-
-
 .home-landing {
   font-family: "Avenir Next", "Nunito Sans", ui-rounded, Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
@@ -1091,4 +936,82 @@ body:has(.auth-page) {
     top: -0.54em;
     width: 0.7em;
   }
+}
+
+/* Settings page: success/error notice auto-dismiss -- quick nod, then swipe right */
+@keyframes notice-nod {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  20% {
+    transform: translateX(-6px);
+  }
+  40% {
+    transform: translateX(4px);
+  }
+  60% {
+    transform: translateX(-3px);
+  }
+  80% {
+    transform: translateX(2px);
+  }
+}
+
+@keyframes notice-swipe-out {
+  from {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateX(140%);
+    opacity: 0;
+  }
+}
+
+.notice-dismiss {
+  animation:
+    notice-nod 0.22s ease-in-out,
+    notice-swipe-out 0.28s ease-in 0.22s forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .notice-dismiss {
+    animation: none;
+    opacity: 0;
+    transition: opacity 0.2s ease-out;
+  }
+}
+
+/* ── AITutor animations (added) ─────────────────────────────────── */
+
+/* Orbiting study emojis */
+@keyframes emoji-orbit {
+  from { transform: rotate(0deg)   translateX(38px) rotate(0deg); }
+  to   { transform: rotate(360deg) translateX(38px) rotate(-360deg); }
+}
+
+/* Blinking cursor in typing animation */
+@keyframes cursor-blink {
+  0%, 49% { opacity: 1; }
+  50%, 100% { opacity: 0; }
+}
+
+/* Star particles pinging around the Switch Course glow */
+@keyframes star-ping {
+  0%   { transform: scale(0);   opacity: 1; }
+  60%  { transform: scale(1.3); opacity: 0.7; }
+  100% { transform: scale(2.2); opacity: 0; }
+}
+
+/* Pulsing orb rings on the empty state */
+@keyframes orb-pulse {
+  0%, 100% { transform: scale(1);    opacity: 0.45; }
+  50%       { transform: scale(1.18); opacity: 0.8; }
+}
+
+/* AI avatar card swipes in from the left when a response arrives */
+@keyframes avatar-swipe-in {
+  from { transform: translateX(-18px); opacity: 0; }
+  to   { transform: translateX(0);     opacity: 1; }
 }

@@ -124,26 +124,7 @@ export default function DashboardPage() {
   return (
     <main className="min-h-screen bg-[var(--app-bg)] text-[var(--app-text)]">
       <div className="border-b border-[var(--app-border)] bg-[var(--app-nav)] backdrop-blur sticky top-[65px] z-20">
-        <div className="max-w-7xl mx-auto px-6 py-4">
-          <div className="flex items-start justify-between gap-4 mb-4">
-            <div>
-              <p className="text-xs text-[var(--app-muted)] uppercase tracking-widest mb-1">
-                {major.school}
-              </p>
-
-              <h1 className="text-2xl font-bold">{major.name}</h1>
-
-              <p className="text-[var(--app-accent)] font-mono text-sm mt-0.5">{major.code}</p>
-            </div>
-
-            <Link
-              href={`/dashboard/${major.code}`}
-              className="shrink-0 text-xs border border-[var(--app-border)] text-[var(--app-muted)] hover:text-[var(--app-text)] hover:border-[var(--app-border-strong)] px-4 py-2 rounded-xl transition"
-            >
-              + Add Courses
-            </Link>
-          </div>
-
+        <div className="max-w-7xl mx-auto px-6 py-2">
           <div className="flex gap-1 overflow-x-auto">
             {TABS.map((tab) => (
               <button
