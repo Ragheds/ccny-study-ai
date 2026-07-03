@@ -1,4 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+
+const MAX_MESSAGE_LENGTH = 12000;
+const MAX_HISTORY_CONTENT_LENGTH = 4000;
 
 type TutorHistoryMessage = {
   role?: "user" | "ai" | "assistant";
@@ -120,7 +124,7 @@ function normalizeHistory(history: TutorHistoryMessage[] | undefined) {
       role: message.role === "ai" || message.role === "assistant"
         ? "assistant" as const
         : "user" as const,
-      content: message.content ?? "",
+      content: (message.content ?? "").slice(0, MAX_HISTORY_CONTENT_LENGTH),
     }));
 }
 
@@ -172,10 +176,24 @@ async function tryModels(
 
 export async function POST(req: NextRequest) {
   try {
+    // Authenticate: require a valid Supabase session
+    const supabase = await createSupabaseServerClient();
+    if (!supabase) {
+      return NextResponse.json({ error: "Auth not configured" }, { status: 500 });
+    }
+    const { data: userData, error: authError } = await supabase.auth.getUser();
+    if (authError || !userData.user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const body = (await req.json()) as TutorRequestBody;
 
-    const message = body.message ?? "";
+    const message = (body.message ?? "").slice(0, MAX_MESSAGE_LENGTH);
     const action = body.action ?? "general";
+
+    if (!message.trim()) {
+      return NextResponse.json({ error: "Message is required" }, { status: 400 });
+    }
     const { major, majorCode, school, course, courseCode, courseSection } =
       normalizeTutorContext(body);
 
