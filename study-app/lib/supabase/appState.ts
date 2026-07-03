@@ -57,9 +57,9 @@ export async function loadRemoteAppState(userId: string): Promise<RemoteAppState
   return normalized ? { status: "found", data: normalized.data } : { status: "missing" };
 }
 
-export async function saveRemoteAppState(userId: string): Promise<void> {
+export async function saveRemoteAppState(userId: string): Promise<{ ok: boolean; error?: string }> {
   const supabase = getSupabaseBrowserClient();
-  if (!supabase) return;
+  if (!supabase) return { ok: false, error: "Supabase is not configured." };
 
   const now = Date.now();
   const state: StoredAppState = {
@@ -78,6 +78,9 @@ export async function saveRemoteAppState(userId: string): Promise<void> {
   );
 
   if (error) {
-    console.error("Remote app state save error:", error);
+    console.error("Remote app state save error:", error.message);
+    return { ok: false, error: error.message };
   }
+
+  return { ok: true };
 }

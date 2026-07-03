@@ -753,8 +753,10 @@ export function AITutor({ major, courses, activeCourseCode, onActiveCourseChange
       setWorkspace((cur) =>
         appendMessagesToConversation(cur, withConv.conversationId, [aiMsg])
       );
-    } catch {
-      const errMsg = createChatMessage("ai", "Failed to get a response. Please try again.");
+    } catch (err) {
+      const detail = err instanceof Error ? err.message : "Unknown error";
+      console.error("AI Tutor request failed:", detail);
+      const errMsg = createChatMessage("ai", `Something went wrong: ${detail}`);
       setWorkspace((cur) =>
         appendMessagesToConversation(cur, withConv.conversationId, [errMsg])
       );

@@ -110,7 +110,10 @@ export function SupabaseAccountBridge() {
     let mounted = true;
 
     const syncUser = async () => {
-      const { data } = await supabase.auth.getUser();
+      const { data, error: getUserError } = await supabase.auth.getUser();
+      if (getUserError) {
+        console.error("SupabaseAccountBridge getUser error:", getUserError.message);
+      }
       if (!mounted || !data.user) return;
 
       const nextAccount = applyProfileOverride(createAccountProfileFromAuthUser(data.user));

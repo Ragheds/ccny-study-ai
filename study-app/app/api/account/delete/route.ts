@@ -30,16 +30,22 @@ export async function POST(req: NextRequest) {
 
       // remove stored app state (if any)
       try {
-        await admin.from("user_app_state").delete().eq("user_id", userId);
+        const { error: stateError } = await admin.from("user_app_state").delete().eq("user_id", userId);
+        if (stateError) {
+          console.warn("Could not delete user_app_state:", stateError.message);
+        }
       } catch (e) {
         console.warn("Could not delete user_app_state:", e);
       }
 
       // remove avatar from storage
       try {
-        await admin.storage.from("avatars").remove([`${userId}/profile.jpg`]);
+        const { error: avatarError } = await admin.storage.from("avatars").remove([`${userId}/profile.jpg`]);
+        if (avatarError) {
+          console.warn("Could not remove avatar from storage:", avatarError.message);
+        }
       } catch (e) {
-        // ignore
+        console.warn("Avatar storage removal error:", e);
       }
 
       return NextResponse.json({ ok: true, deletedAuth });
@@ -52,11 +58,17 @@ export async function POST(req: NextRequest) {
     }
 
     try {
-      await serverClient.from("user_app_state").delete().eq("user_id", userId);
+      const { error: stateError } = await serverClient.from("user_app_state").delete().eq("user_id", userId);
+      if (stateError) {
+        console.warn("Fallback user_app_state deletion error:", stateError.message);
+      }
       try {
-        await serverClient.storage.from("avatars").remove([`${userId}/profile.jpg`]);
+        const { error: avatarError } = await serverClient.storage.from("avatars").remove([`${userId}/profile.jpg`]);
+        if (avatarError) {
+          console.warn("Fallback avatar removal error:", avatarError.message);
+        }
       } catch (e) {
-        // ignore
+        console.warn("Fallback avatar removal error:", e);
       }
     } catch (e) {
       console.warn("Fallback deletion error:", e);

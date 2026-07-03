@@ -6,5 +6,8 @@ export async function signOutSupabaseUser(): Promise<void> {
   const supabase = getSupabaseBrowserClient();
   if (!supabase) return;
 
-  await supabase.auth.signOut();
+  const { error } = await supabase.auth.signOut();
+  if (error) {
+    console.error("Supabase sign-out error:", error.message);
+  }
 }

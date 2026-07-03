@@ -39,7 +39,7 @@ export default function DeleteAccountButton() {
       try {
         await signOutSupabaseUser();
       } catch (e) {
-        // ignore
+        console.warn("Sign-out after account deletion failed:", e);
       }
 
       // Redirect to goodbye page

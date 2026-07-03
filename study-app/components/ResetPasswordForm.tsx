@@ -88,7 +88,10 @@ export function ResetPasswordForm() {
       return;
     }
 
-    await supabase.auth.signOut();
+    const { error: signOutError } = await supabase.auth.signOut();
+    if (signOutError) {
+      console.error("Sign-out after password reset failed:", signOutError.message);
+    }
     setAccount(null);
     setLoading(false);
     setNotice({
