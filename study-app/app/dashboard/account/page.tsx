@@ -15,7 +15,8 @@ import {
   updateAccountProfile,
   updateAccountBannerColor,
 } from "@/lib/account";
-import { SavedCourse, SavedMajor } from "@/lib/chatWorkspace";
+import { SavedMajor } from "@/lib/chatWorkspace";
+import { EMPTY_COURSES } from "@/lib/courses";
 import { KEYS } from "@/lib/storage";
 import { signOutSupabaseUser } from "@/lib/supabase/auth";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
@@ -27,7 +28,6 @@ type ProfileOverride = {
 };
 
 const EMPTY_PROFILE_OVERRIDE: ProfileOverride = {};
-const EMPTY_COURSES: SavedCourse[] = [];
 const AVATAR_BUCKET = "avatars";
 const MAX_AVATAR_FILE_BYTES = 8 * 1024 * 1024;
 const AVATAR_MAX_DIMENSION = 512;

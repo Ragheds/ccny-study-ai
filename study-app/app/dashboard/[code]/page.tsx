@@ -4,15 +4,9 @@ import { useState, useMemo } from "react";
 import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { schools } from "../../../data/ccny";
-import catalog from "../../../data/catalog.json";
+import { filterCatalog, toggleSetItem, typedCatalog } from "@/lib/catalog";
 import { saveToStorage, loadFromStorage, KEYS } from "@/lib/storage";
 import { useHydrated } from "@/hooks/useStoredValue";
-
-type Course = { code: string; name: string };
-type Department = { name: string; prefix: string; courses: Course[] };
-type CatalogSection = { section: string; color: string; departments: Department[] };
-
-const typedCatalog = catalog as CatalogSection[];
 
 function findMajorByCode(code: string) {
   for (const school of schools) {
@@ -123,39 +117,13 @@ export default function CoursePickerPage() {
   }, [preferredSection]);
 
   const toggleCourse = (courseCode: string) => {
-    setSelected((prev) => {
-      const next = new Set(prev);
-      if (next.has(courseCode)) {
-        next.delete(courseCode);
-      } else {
-        next.add(courseCode);
-      }
-      return next;
-    });
+    setSelected((prev) => toggleSetItem(prev, courseCode));
   };
 
-  const filtered = useMemo(() => {
-    const q = search.toLowerCase().trim();
-    return orderedCatalog
-      .map((section) => ({
-        ...section,
-        departments: section.departments
-          .map((dept) => ({
-            ...dept,
-            courses: dept.courses.filter(
-              (course) =>
-                course.code.toLowerCase().includes(q) ||
-                course.name.toLowerCase().includes(q)
-            ),
-          }))
-          .filter((dept) => dept.courses.length > 0),
-      }))
-      .filter(
-        (section) =>
-          section.departments.length > 0 &&
-          (activeSection === null || section.section === activeSection)
-      );
-  }, [search, activeSection, orderedCatalog]);
+  const filtered = useMemo(
+    () => filterCatalog(orderedCatalog, search, activeSection),
+    [search, activeSection, orderedCatalog]
+  );
 
   const handleSave = () => {
     if (!major) return;

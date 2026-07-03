@@ -1,3 +1,5 @@
+import { DateGroup, groupByDate } from "@/lib/dateGroups";
+
 export type SavedCourse = {
   code: string;
   name: string;
@@ -44,10 +46,7 @@ export type ChatWorkspace = {
   legacyMigratedAt?: number;
 };
 
-export type ConversationGroup = {
-  label: "Today" | "Yesterday" | "Last Week" | "Older";
-  conversations: ChatConversation[];
-};
+export type ConversationGroup = DateGroup<ChatConversation>;
 
 export const CHAT_INACTIVITY_MS = 60 * 60 * 1000;
 
@@ -260,33 +259,7 @@ export function getCourseConversations(
 export function groupConversationsByDate(
   conversations: ChatConversation[]
 ): ConversationGroup[] {
-  const now = getCurrentTimestamp();
-  const startOfToday = new Date(now);
-  startOfToday.setHours(0, 0, 0, 0);
-  const today = startOfToday.getTime();
-  const yesterday = today - 24 * 60 * 60 * 1000;
-  const lastWeek = today - 7 * 24 * 60 * 60 * 1000;
-
-  const groups: ConversationGroup[] = [
-    { label: "Today", conversations: [] },
-    { label: "Yesterday", conversations: [] },
-    { label: "Last Week", conversations: [] },
-    { label: "Older", conversations: [] },
-  ];
-
-  for (const conversation of conversations) {
-    if (conversation.updatedAt >= today) {
-      groups[0].conversations.push(conversation);
-    } else if (conversation.updatedAt >= yesterday) {
-      groups[1].conversations.push(conversation);
-    } else if (conversation.updatedAt >= lastWeek) {
-      groups[2].conversations.push(conversation);
-    } else {
-      groups[3].conversations.push(conversation);
-    }
-  }
-
-  return groups.filter((group) => group.conversations.length > 0);
+  return groupByDate(conversations, (c) => c.updatedAt);
 }
 
 export function migrateLegacyChatHistory(

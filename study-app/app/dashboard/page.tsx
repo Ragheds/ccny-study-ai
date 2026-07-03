@@ -6,9 +6,8 @@ import { AITutor } from "@/components/AITutor";
 import { FlashcardsWorkspace } from "@/components/FlashcardsWorkspace";
 import { useHydrated, useStoredValue } from "@/hooks/useStoredValue";
 import { SavedCourse, SavedMajor } from "@/lib/chatWorkspace";
+import { EMPTY_COURSES } from "@/lib/courses";
 import { KEYS } from "@/lib/storage";
-
-const EMPTY_COURSES: SavedCourse[] = [];
 
 const TABS = [
   { id: "courses", label: "My Courses" },

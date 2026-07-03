@@ -1,13 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import catalog from "../../data/catalog.json";
-
-type Course = { code: string; name: string };
-type Department = { name: string; prefix: string; courses: Course[] };
-type CatalogSection = { section: string; color: string; departments: Department[] };
-
-const typedCatalog = catalog as CatalogSection[];
+import { filterCatalog, toggleSetItem, typedCatalog } from "@/lib/catalog";
 
 export default function CourseCatalogPage() {
   const [query, setQuery] = useState("");
@@ -15,40 +9,13 @@ export default function CourseCatalogPage() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
   const toggleCourse = (code: string) => {
-    setSelected((prev) => {
-      const next = new Set(prev);
-      if (next.has(code)) {
-        next.delete(code);
-      } else {
-        next.add(code);
-      }
-      return next;
-    });
+    setSelected((prev) => toggleSetItem(prev, code));
   };
 
-  const filtered = useMemo(() => {
-    const q = query.toLowerCase().trim();
-
-    return typedCatalog
-      .map((section) => ({
-        ...section,
-        departments: section.departments
-          .map((dept) => ({
-            ...dept,
-            courses: dept.courses.filter(
-              (course) =>
-                course.code.toLowerCase().includes(q) ||
-                course.name.toLowerCase().includes(q)
-            ),
-          }))
-          .filter((dept) => dept.courses.length > 0),
-      }))
-      .filter(
-        (section) =>
-          section.departments.length > 0 &&
-          (activeSection === null || section.section === activeSection)
-      );
-  }, [query, activeSection]);
+  const filtered = useMemo(
+    () => filterCatalog(typedCatalog, query, activeSection),
+    [query, activeSection]
+  );
 
   const totalCourses = typedCatalog.reduce(
     (acc, section) =>

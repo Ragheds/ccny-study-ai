@@ -1,8 +1,11 @@
 "use client";
 
 import { ChangeEvent, useState } from "react";
+import { HistoryList } from "@/components/HistoryList";
 import { useStoredValue } from "@/hooks/useStoredValue";
 import { SavedCourse, SavedMajor } from "@/lib/chatWorkspace";
+import { findSelectedCourse } from "@/lib/courses";
+import { readTextFile } from "@/lib/fileUpload";
 import {
   addFlashcardSet,
   clearActiveFlashcardSet,
@@ -143,8 +146,7 @@ export function FlashcardsWorkspace({
   const [editingTitle, setEditingTitle] = useState("");
 
   const store = normalizeFlashcardStore(rawStore);
-  const selectedCourse =
-    courses.find((course) => course.code === activeCourseCode) ?? courses[0] ?? null;
+  const selectedCourse = findSelectedCourse(courses, activeCourseCode);
   const activeSet = selectedCourse ? getActiveFlashcardSet(store, selectedCourse.code) : undefined;
   const courseSets = selectedCourse ? getCourseFlashcardSets(store, selectedCourse.code) : [];
   const setGroups = groupFlashcardSetsByDate(courseSets);
@@ -207,16 +209,11 @@ export function FlashcardsWorkspace({
   };
 
   const handleFileUpload = (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = (readerEvent) => {
-      setUploadedText(String(readerEvent.target?.result ?? ""));
-      setMaterialName(file.name);
+    readTextFile(event, (text, fileName) => {
+      setUploadedText(text);
+      setMaterialName(fileName);
       setShowUpload(false);
-    };
-    reader.readAsText(file);
+    });
   };
 
   const generateFlashcards = async () => {
@@ -598,115 +595,33 @@ function FlashcardHistorySidebar({
 }) {
   return (
     <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface)] p-3 shadow-sm lg:min-h-[620px]">
-      <div className="flex items-center justify-between gap-3 px-2 py-2">
-        <div>
-          <p className="text-xs uppercase tracking-widest text-[var(--app-muted)]">Flashcards</p>
-          <p className="mt-1 font-mono text-xs text-[var(--app-muted-strong)]">{courseCode}</p>
-        </div>
-
-        <button
-          type="button"
-          onClick={onNewSet}
-          className="rounded-xl bg-[var(--app-text)] px-3 py-2 text-xs font-semibold text-[var(--app-bg)] transition hover:opacity-90"
-        >
-          New set
-        </button>
-      </div>
-
-      <div className="mt-3 space-y-4">
-        {setGroups.length === 0 && (
-          <div className="rounded-xl border border-[var(--app-border)] bg-[var(--app-surface-muted)] p-4 text-sm text-[var(--app-muted)]">
-            No flashcard sets for this course yet.
-          </div>
-        )}
-
-        {setGroups.map((group) => (
-          <div key={group.label}>
-            <p className="px-2 pb-2 text-[11px] font-semibold uppercase tracking-widest text-[var(--app-muted)]">
-              {group.label}
-            </p>
-
-            <div className="space-y-1">
-              {group.sets.map((flashcardSet) => {
-                const isActive = flashcardSet.id === activeSet?.id;
-                const isEditing = flashcardSet.id === editingSetId;
-
-                return (
-                  <div
-                    key={flashcardSet.id}
-                    className={`rounded-xl border p-2 transition ${
-                      isActive
-                        ? "border-[var(--app-border-strong)] bg-[var(--app-surface-strong)]"
-                        : "border-transparent hover:bg-[var(--app-surface-muted)]"
-                    }`}
-                  >
-                    {isEditing ? (
-                      <div className="flex gap-2">
-                        <input
-                          value={editingTitle}
-                          onChange={(event) => setEditingTitle(event.target.value)}
-                          onKeyDown={(event) => {
-                            if (event.key === "Enter") onSubmitRename();
-                            if (event.key === "Escape") setEditingTitle(flashcardSet.title);
-                          }}
-                          className="min-w-0 flex-1 rounded-lg border border-[var(--app-border)] bg-[var(--app-bg)] px-2 py-1 text-xs text-[var(--app-text)] outline-none"
-                          autoFocus
-                        />
-
-                        <button
-                          type="button"
-                          onClick={onSubmitRename}
-                          className="rounded-lg bg-[var(--app-text)] px-2 py-1 text-xs font-semibold text-[var(--app-bg)]"
-                        >
-                          Save
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="flex items-start gap-2">
-                        <button
-                          type="button"
-                          onClick={() => onChooseSet(flashcardSet)}
-                          className="min-w-0 flex-1 text-left"
-                        >
-                          <span className="block truncate text-sm font-medium text-[var(--app-text)]">
-                            {flashcardSet.title}
-                          </span>
-                          <span className="block text-[11px] text-[var(--app-muted)]">
-                            {flashcardSet.cards.length} cards · {formatFlashcardDate(flashcardSet.updatedAt)}
-                          </span>
-                          {flashcardSet.materialIncluded && (
-                            <span className="mt-1 block truncate text-[11px] text-[var(--app-accent)]">
-                              From material
-                            </span>
-                          )}
-                        </button>
-
-                        <div className="flex shrink-0 gap-1">
-                          <button
-                            type="button"
-                            onClick={() => onBeginRename(flashcardSet)}
-                            className="rounded-md px-1.5 py-1 text-[11px] text-[var(--app-muted)] hover:bg-[var(--app-surface-muted)] hover:text-[var(--app-text)]"
-                          >
-                            Rename
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => onRemoveSet(flashcardSet)}
-                            className="rounded-md px-1.5 py-1 text-[11px] text-[var(--app-muted)] hover:bg-red-500/10 hover:text-red-500"
-                          >
-                            Delete
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        ))}
-      </div>
+      <HistoryList<FlashcardSet>
+        label="Flashcards"
+        courseCode={courseCode}
+        groups={setGroups}
+        activeItemId={activeSet?.id}
+        editingItemId={editingSetId}
+        editingTitle={editingTitle}
+        newButtonLabel="New set"
+        emptyMessage="No flashcard sets for this course yet."
+        renderSubtitle={(s) =>
+          `${s.cards.length} cards · ${formatFlashcardDate(s.updatedAt)}`
+        }
+        renderExtra={(s) =>
+          s.materialIncluded ? (
+            <span className="mt-1 block truncate text-[11px] text-[var(--app-accent)]">
+              From material
+            </span>
+          ) : null
+        }
+        setEditingTitle={setEditingTitle}
+        onBeginRename={onBeginRename}
+        onCancelEdit={(s) => setEditingTitle(s.title)}
+        onRemove={onRemoveSet}
+        onSelect={onChooseSet}
+        onNew={onNewSet}
+        onSubmitRename={onSubmitRename}
+      />
     </div>
   );
 }

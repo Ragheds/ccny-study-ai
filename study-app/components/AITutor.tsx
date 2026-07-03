@@ -1,9 +1,10 @@
 "use client";
 
-import { ChangeEvent, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useHydrated, useStoredValue } from "@/hooks/useStoredValue";
+import { HistoryList } from "@/components/HistoryList";
 import {
   addConversation,
   appendMessagesToConversation,
@@ -23,6 +24,8 @@ import {
   SavedMajor,
   touchConversation,
 } from "@/lib/chatWorkspace";
+import { findSelectedCourse } from "@/lib/courses";
+import { readTextFile } from "@/lib/fileUpload";
 import { KEYS } from "@/lib/storage";
 
 /* ─── constants ─────────────────────────────────────────────────── */
@@ -350,99 +353,26 @@ function ChatList({
   onSubmitRename,
 }: ChatListProps) {
   return (
-    <>
-      <div className="mb-3 flex items-center justify-between gap-3 px-1">
-        <div>
-          <p className="text-xs uppercase tracking-widest text-[var(--app-muted)]">Chats</p>
-          <p className="mt-0.5 font-mono text-xs font-bold text-[var(--app-muted-strong)]">
-            {selectedCourseCode}
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={onStartNewChat}
-          className="rounded-xl bg-[var(--app-text)] px-3 py-2 text-xs font-semibold text-[var(--app-bg)] transition hover:opacity-90"
-        >
-          New chat
-        </button>
-      </div>
-
-      <div className="space-y-4">
-        {conversationGroups.length === 0 && (
-          <div className="rounded-xl border border-[var(--app-border)] bg-[var(--app-surface-muted)] p-4 text-xs text-[var(--app-muted)]">
-            No conversations yet. Start one above.
-          </div>
-        )}
-        {conversationGroups.map((group) => (
-          <div key={group.label}>
-            <p className="px-1 pb-2 text-[11px] font-semibold uppercase tracking-widest text-[var(--app-muted)]">
-              {group.label}
-            </p>
-            <div className="space-y-1">
-              {group.conversations.map((conv) => {
-                const isActive  = conv.id === activeConversation?.id;
-                const isEditing = conv.id === editingConvId;
-                return (
-                  <div
-                    key={conv.id}
-                    className={`rounded-xl border p-2 transition ${
-                      isActive
-                        ? "border-[var(--app-border-strong)] bg-[var(--app-surface-strong)]"
-                        : "border-transparent hover:bg-[var(--app-surface-muted)]"
-                    }`}
-                  >
-                    {isEditing ? (
-                      <div className="flex gap-2">
-                        <input
-                          value={editingTitle}
-                          onChange={(e) => setEditingTitle(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter")  onSubmitRename();
-                            if (e.key === "Escape") setEditingConvId(null);
-                          }}
-                          className="min-w-0 flex-1 rounded-lg border border-[var(--app-border)] bg-[var(--app-bg)] px-2 py-1 text-xs text-[var(--app-text)] outline-none"
-                          autoFocus
-                        />
-                        <button
-                          type="button"
-                          onClick={onSubmitRename}
-                          className="rounded-lg bg-[var(--app-text)] px-2 py-1 text-xs font-semibold text-[var(--app-bg)]"
-                        >
-                          Save
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="flex items-start gap-2">
-                        <button
-                          type="button"
-                          onClick={() => onSelectConversation(conv.id)}
-                          className="min-w-0 flex-1 text-left"
-                        >
-                          <span className="block truncate text-sm font-medium text-[var(--app-text)]">
-                            {conv.title}
-                          </span>
-                          <span className="block text-[11px] text-[var(--app-muted)]">
-                            {conv.messages.length} message{conv.messages.length !== 1 ? "s" : ""}
-                          </span>
-                        </button>
-                        <div className="flex shrink-0 gap-1">
-                          <button type="button" onClick={() => onBeginRename(conv)} className="rounded-md px-1.5 py-1 text-[11px] text-[var(--app-muted)] hover:bg-[var(--app-surface-muted)] hover:text-[var(--app-text)]">
-                            Rename
-                          </button>
-                          <button type="button" onClick={() => onRemoveConversation(conv)} className="rounded-md px-1.5 py-1 text-[11px] text-[var(--app-muted)] hover:bg-red-500/10 hover:text-red-500">
-                            Delete
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        ))}
-      </div>
-    </>
+    <HistoryList<ChatConversation>
+      label="Chats"
+      courseCode={selectedCourseCode}
+      groups={conversationGroups}
+      activeItemId={activeConversation?.id}
+      editingItemId={editingConvId}
+      editingTitle={editingTitle}
+      newButtonLabel="New chat"
+      emptyMessage="No conversations yet. Start one above."
+      renderSubtitle={(conv) =>
+        `${conv.messages.length} message${conv.messages.length !== 1 ? "s" : ""}`
+      }
+      setEditingTitle={setEditingTitle}
+      onBeginRename={onBeginRename}
+      onCancelEdit={() => setEditingConvId(null)}
+      onRemove={onRemoveConversation}
+      onSelect={(conv) => onSelectConversation(conv.id)}
+      onNew={onStartNewChat}
+      onSubmitRename={onSubmitRename}
+    />
   );
 }
 
@@ -636,8 +566,7 @@ export function AITutor({ major, courses, activeCourseCode, onActiveCourseChange
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  const selectedCourse =
-    courses.find((c) => c.code === selectedCourseCode) ?? courses[0] ?? null;
+  const selectedCourse = findSelectedCourse(courses, selectedCourseCode);
 
   const courseConversations = selectedCourse
     ? getCourseConversations(workspace, selectedCourse.code) : [];
@@ -765,12 +694,8 @@ export function AITutor({ major, courses, activeCourseCode, onActiveCourseChange
     }
   };
 
-  const handleFileUpload = (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (e) => { setUploadedText(e.target?.result as string); setShowUpload(false); };
-    reader.readAsText(file);
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    readTextFile(event, (text) => { setUploadedText(text); setShowUpload(false); });
   };
 
   if (!hydrated) return <div className="min-h-[360px]" />;

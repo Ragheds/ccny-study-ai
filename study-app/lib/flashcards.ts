@@ -1,4 +1,5 @@
 import { SavedCourse, SavedMajor } from "@/lib/chatWorkspace";
+import { DateGroup, groupByDate } from "@/lib/dateGroups";
 
 export type FlashcardDraft = {
   front: string;
@@ -42,10 +43,7 @@ type LegacyFlashcardStore = {
   setIdsByCourse?: Record<string, string[]>;
 };
 
-export type FlashcardSetGroup = {
-  label: "Today" | "Yesterday" | "Last Week" | "Older";
-  sets: FlashcardSet[];
-};
+export type FlashcardSetGroup = DateGroup<FlashcardSet>;
 
 export const FLASHCARD_TARGET_COUNT = 20;
 
@@ -269,33 +267,7 @@ export function getActiveFlashcardSet(
 }
 
 export function groupFlashcardSetsByDate(sets: FlashcardSet[]): FlashcardSetGroup[] {
-  const now = Date.now();
-  const startOfToday = new Date(now);
-  startOfToday.setHours(0, 0, 0, 0);
-  const today = startOfToday.getTime();
-  const yesterday = today - 24 * 60 * 60 * 1000;
-  const lastWeek = today - 7 * 24 * 60 * 60 * 1000;
-
-  const groups: FlashcardSetGroup[] = [
-    { label: "Today", sets: [] },
-    { label: "Yesterday", sets: [] },
-    { label: "Last Week", sets: [] },
-    { label: "Older", sets: [] },
-  ];
-
-  for (const set of sets) {
-    if (set.updatedAt >= today) {
-      groups[0].sets.push(set);
-    } else if (set.updatedAt >= yesterday) {
-      groups[1].sets.push(set);
-    } else if (set.updatedAt >= lastWeek) {
-      groups[2].sets.push(set);
-    } else {
-      groups[3].sets.push(set);
-    }
-  }
-
-  return groups.filter((group) => group.sets.length > 0);
+  return groupByDate(sets, (s) => s.updatedAt);
 }
 
 export function formatFlashcardDate(timestamp: number): string {
