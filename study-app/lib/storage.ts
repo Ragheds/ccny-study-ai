@@ -9,6 +9,8 @@ export const KEYS = {
   CHAT_HISTORY: "ccny_chat_history",
   CHAT_WORKSPACE: "ccny_chat_workspace_v1",
   NOTES: "ccny_notes",
+  NOTES_V2: "ccny_notes_v2",          // per-course notes store
+  UPLOAD_DRAFT: "ccny_upload_draft",  // persisted upload text
   QUIZ_RESULTS: "ccny_quiz_results",
   FLASHCARDS: "ccny_flashcards",
   PROGRESS: "ccny_progress",
@@ -25,6 +27,8 @@ export const ACCOUNT_SCOPED_STORAGE_KEYS = [
   KEYS.CHAT_HISTORY,
   KEYS.CHAT_WORKSPACE,
   KEYS.NOTES,
+  KEYS.NOTES_V2,
+  KEYS.UPLOAD_DRAFT,
   KEYS.QUIZ_RESULTS,
   KEYS.FLASHCARDS,
   KEYS.PROGRESS,

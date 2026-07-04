@@ -27,15 +27,21 @@ type TutorRequestBody = {
   courseSection?: string;
 };
 
+// ── model routing ────────────────────────────────────────────────────────────
+// Each array is tried in order; first model that returns HTTP 200 wins.
 const ROUTERS = {
+  // Code questions: Qwen Coder first (best free coding model)
   code: [
     "qwen/qwen3-coder:free",
     "openrouter/free",
   ],
+  // Reasoning / math / proofs: DeepSeek R1 first
   reasoning: [
-    "openrouter/free",
+    "deepseek/deepseek-r1:free",
     "qwen/qwen3-coder:free",
+    "openrouter/free",
   ],
+  // Fast general queries
   fast: [
     "openrouter/free",
     "qwen/qwen3-coder:free",
@@ -46,52 +52,20 @@ function detectRoute(message: string, action: string): keyof typeof ROUTERS {
   const lower = message.toLowerCase();
 
   const codeKeywords = [
-    "code",
-    "error",
-    "debug",
-    "bug",
-    "syntax",
-    "function",
-    "compile",
-    "runtime",
-    "exception",
-    "stack trace",
-    "not working",
-    "fix this",
-    "segfault",
-    "python",
-    "java",
-    "c++",
-    "javascript",
-    "typescript",
-    "algorithm",
+    "code", "error", "debug", "bug", "syntax", "function", "compile",
+    "runtime", "exception", "stack trace", "not working", "fix this",
+    "segfault", "python", "java", "c++", "javascript", "typescript", "algorithm",
   ];
-
-  if (codeKeywords.some((keyword) => lower.includes(keyword))) return "code";
+  if (codeKeywords.some((kw) => lower.includes(kw))) return "code";
 
   const reasoningKeywords = [
-    "math",
-    "calculus",
-    "proof",
-    "equation",
-    "theorem",
-    "derive",
-    "integral",
-    "derivative",
-    "statistics",
-    "probability",
-    "logic",
-    "physics",
-    "chemistry",
-    "formula",
-    "solve",
-    "calculate",
+    "math", "calculus", "proof", "equation", "theorem", "derive", "integral",
+    "derivative", "statistics", "probability", "logic", "physics", "chemistry",
+    "formula", "solve", "calculate",
   ];
-
-  if (reasoningKeywords.some((keyword) => lower.includes(keyword))) return "reasoning";
+  if (reasoningKeywords.some((kw) => lower.includes(kw))) return "reasoning";
 
   if (["quiz", "flashcards", "studyguide", "summary"].includes(action)) return "reasoning";
-
   if (message.length > 300) return "reasoning";
 
   return "fast";
@@ -99,7 +73,6 @@ function detectRoute(message: string, action: string): keyof typeof ROUTERS {
 
 function normalizeTutorContext(body: TutorRequestBody): Required<TutorContext> {
   const context = body.context ?? {};
-
   return {
     major: context.major ?? body.major ?? "CCNY student",
     majorCode: context.majorCode ?? body.majorCode ?? "Undeclared",
@@ -112,80 +85,28 @@ function normalizeTutorContext(body: TutorRequestBody): Required<TutorContext> {
 
 function normalizeHistory(history: TutorHistoryMessage[] | undefined) {
   if (!Array.isArray(history)) return [];
-
   return history
-    .filter((message) => message.content?.trim())
-    .slice(-8)
-    .map((message) => ({
-      role: message.role === "ai" || message.role === "assistant"
-        ? "assistant" as const
-        : "user" as const,
-      content: message.content ?? "",
+    .filter((m) => m.content?.trim())
+    .slice(-20) // ← was 8, now 20 for better long-session context
+    .map((m) => ({
+      role:
+        m.role === "ai" || m.role === "assistant"
+          ? ("assistant" as const)
+          : ("user" as const),
+      content: m.content ?? "",
     }));
 }
 
-async function tryModels(
-  models: string[],
-  body: object,
-  apiKey: string
-): Promise<{ text: string; model: string }> {
-  let lastError = "";
-
-  for (const model of models) {
-    try {
-      const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${apiKey}`,
-          "HTTP-Referer": "https://ccny-study-ai.vercel.app",
-          "X-Title": "CCNY Study AI",
-        },
-        body: JSON.stringify({ ...body, model }),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok || data.error) {
-        lastError = data.error?.message ?? "Unknown error";
-        console.warn(`Model ${model} failed: ${lastError} — trying next...`);
-        continue;
-      }
-
-      const text = data?.choices?.[0]?.message?.content;
-
-      if (!text) {
-        console.warn(`Model ${model} returned empty — trying next...`);
-        continue;
-      }
-
-      console.log(`Used model: ${model}`);
-      return { text, model };
-    } catch (err) {
-      console.warn(`Model ${model} threw error — trying next...`, err);
-      continue;
-    }
-  }
-
-  throw new Error(`All models failed. Last error: ${lastError}`);
-}
-
-export async function POST(req: NextRequest) {
-  try {
-    const body = (await req.json()) as TutorRequestBody;
-
-    const message = body.message ?? "";
-    const action = body.action ?? "general";
-    const { major, majorCode, school, course, courseCode, courseSection } =
-      normalizeTutorContext(body);
-
-    const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
-
-    if (!OPENROUTER_API_KEY) {
-      return NextResponse.json({ error: "Missing API key" }, { status: 500 });
-    }
-
-    const systemPrompt = `You are an academic study assistant for CCNY (The City College of New York) students.
+function buildSystemPrompt(
+  action: string,
+  major: string,
+  majorCode: string,
+  school: string,
+  course: string,
+  courseCode: string,
+  courseSection: string
+): string {
+  const base = `You are an academic study assistant for CCNY (The City College of New York) students.
 
 Student context:
 - Major: ${major} (${majorCode})
@@ -197,43 +118,204 @@ Your job is to help this student with their coursework. Keep answers:
 - Specific to their course level and major at CCNY
 - Clear, structured, and easy to understand
 - Focused on what a CCNY student would need to know
-- Aware of the current course, its school/section, and the prior chat messages when provided
-- Concise but complete
+- Concise but complete`;
 
-${action === "quiz" ? `Generate a 5-question multiple choice quiz about ${course}.
-Format each question clearly with 4 options (A, B, C, D) and mark the correct answer at the end.
-Make questions appropriate for a ${major} student at CCNY.` : ""}
+  if (action === "quiz")
+    return `${base}
 
-${action === "flashcards" ? `Generate exactly 20 flashcards for ${course} (${courseCode}).
+Generate a 5-question multiple choice quiz about ${course}.
+Format EXACTLY like this for every question:
+
+1. [Question text]
+A. [Option A]
+B. [Option B]
+C. [Option C]
+D. [Option D]
+
+Answer: [Letter]
+
+Make questions appropriate for a ${major} student at CCNY.`;
+
+  if (action === "flashcards")
+    return `${base}
+
+Generate exactly 20 flashcards for ${course} (${courseCode}).
 If the student's message includes uploaded course material, use that material as the primary source.
-If the student's message includes a unit or focus topic, treat it as a required scope for the set and make every card support that focus.
 Use this exact format for every card:
 FRONT: [concept, term, or recall prompt]
 BACK: [clear definition, answer, or explanation]
 ---
-Do not include extra headings, numbering outside the FRONT/BACK format, or fewer than 20 cards.
-Make every card specific to what a ${major} student at CCNY would need to study.` : ""}
+Do not include extra headings or fewer than 20 cards.`;
 
-${action === "studyguide" ? `Generate a comprehensive study guide for ${course} (${courseCode}).
+  if (action === "studyguide")
+    return `${base}
+
+Generate a comprehensive study guide for ${course} (${courseCode}).
 Include:
 1. Key Concepts & Definitions
 2. Important Theories or Methods
 3. Common Examples
-4. Things to Remember for Exams
-Make it specific for a ${major} student at ${school}.` : ""}
+4. Things to Remember for Exams`;
 
-${action === "summary" ? `Summarize the student's notes for ${course} (${courseCode}).
+  if (action === "summary")
+    return `${base}
+
+Summarize the student's notes for ${course} (${courseCode}).
 Structure your response as:
 1. Key Concepts (short bullet list)
 2. Important Definitions, Formulas, or Facts (short bullet list)
 3. A short plain-English summary paragraph
-Only use information that is actually present in the notes provided below. Do not invent or assume details that aren't there.` : ""}`.trim();
+Only use information actually present in the notes. Do not invent details.`;
+
+  return base;
+}
+
+// ── streaming fetch from OpenRouter ─────────────────────────────────────────
+async function tryModelsStreaming(
+  models: string[],
+  requestBody: object,
+  apiKey: string
+): Promise<Response | null> {
+  for (const model of models) {
+    try {
+      const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${apiKey}`,
+          "HTTP-Referer": "https://ccny-study-ai.vercel.app",
+          "X-Title": "CCNY Study AI",
+        },
+        body: JSON.stringify({ ...requestBody, model, stream: true }),
+      });
+
+      if (!res.ok || !res.body) {
+        console.warn(`Model ${model} returned ${res.status}, trying next…`);
+        continue;
+      }
+
+      // Forward OpenRouter SSE → plain-text chunks to the client
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      const stream = new ReadableStream({
+        async start(controller) {
+          try {
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) break;
+
+              buffer += decoder.decode(value, { stream: true });
+              const frames = buffer.split("\n\n");
+              buffer = frames.pop() ?? "";
+
+              for (const frame of frames) {
+                const lines = frame
+                  .split("\n")
+                  .map((line) => line.replace(/^\s+|\s+$/g, ""));
+
+                for (const line of lines) {
+                  if (!line.startsWith("data:")) continue;
+                  const data = line.slice(5).trim();
+                  if (!data || data === "[DONE]") continue;
+
+                  try {
+                    const parsed = JSON.parse(data) as {
+                      choices?: Array<{ delta?: { content?: string } }>;
+                      error?: unknown;
+                    };
+                    if (parsed.error) continue;
+                    const text = parsed.choices?.[0]?.delta?.content;
+                    if (text) controller.enqueue(new TextEncoder().encode(text));
+                  } catch {
+                    // malformed chunk — skip
+                  }
+                }
+              }
+            }
+
+            if (buffer.trim()) {
+              const lines = buffer
+                .split("\n")
+                .map((line) => line.replace(/^\s+|\s+$/g, ""));
+              for (const line of lines) {
+                if (!line.startsWith("data:")) continue;
+                const data = line.slice(5).trim();
+                if (!data || data === "[DONE]") continue;
+                try {
+                  const parsed = JSON.parse(data) as {
+                    choices?: Array<{ delta?: { content?: string } }>;
+                    error?: unknown;
+                  };
+                  if (parsed.error) continue;
+                  const text = parsed.choices?.[0]?.delta?.content;
+                  if (text) controller.enqueue(new TextEncoder().encode(text));
+                } catch {
+                  // malformed chunk — skip
+                }
+              }
+            }
+          } finally {
+            controller.close();
+          }
+        },
+        cancel() {
+          reader.cancel().catch(() => {});
+        },
+      });
+
+      return new Response(stream, {
+        headers: {
+          "Content-Type": "text/plain; charset=utf-8",
+          "X-Model": model,
+          "Cache-Control": "no-cache",
+        },
+      });
+    } catch (err) {
+      console.warn(`Model ${model} threw:`, err);
+    }
+  }
+  return null;
+}
+
+// ── route handler ────────────────────────────────────────────────────────────
+export async function POST(req: NextRequest) {
+  try {
+    let body: TutorRequestBody;
+    try {
+      body = (await req.json()) as TutorRequestBody;
+    } catch {
+      return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+    }
+
+    if (!body || typeof body !== "object" || Array.isArray(body)) {
+      return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
+    }
+
+    const message = typeof body.message === "string" ? body.message.trim() : "";
+    if (!message) {
+      return NextResponse.json({ error: "A message is required" }, { status: 400 });
+    }
+
+    const action = body.action ?? "general";
+    const { major, majorCode, school, course, courseCode, courseSection } =
+      normalizeTutorContext(body);
+
+    const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
+    if (!OPENROUTER_API_KEY) {
+      return NextResponse.json({ error: "Missing API key" }, { status: 500 });
+    }
+
+    const systemPrompt = buildSystemPrompt(
+      action, major, majorCode, school, course, courseCode, courseSection
+    );
 
     const routeKey = detectRoute(message, action);
     const models = ROUTERS[routeKey];
     const historyMessages = normalizeHistory(body.history);
 
-    console.log(`Route: ${routeKey} | Trying: ${models.join(", ")}`);
+    console.log(`Route: ${routeKey} | Models: ${models.join(", ")}`);
 
     const requestBody = {
       messages: [
@@ -245,9 +327,13 @@ Only use information that is actually present in the notes provided below. Do no
       temperature: action === "quiz" || action === "flashcards" ? 0.3 : 0.7,
     };
 
-    const { text, model } = await tryModels(models, requestBody, OPENROUTER_API_KEY);
+    const streamResponse = await tryModelsStreaming(models, requestBody, OPENROUTER_API_KEY);
+    if (streamResponse) return streamResponse;
 
-    return NextResponse.json({ response: text, model, route: routeKey });
+    return NextResponse.json(
+      { error: "All models failed. Please try again." },
+      { status: 503 }
+    );
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Internal server error";
     console.error("Tutor API error:", message);

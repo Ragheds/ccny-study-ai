@@ -1,0 +1,8 @@
+{
+  "eslint.workingDirectories": [
+    { "directory": "./study-app", "changeProcessCWD": true }
+  ],
+  "eslint.options": {
+    "configFile": "./study-app/eslint.config.mjs"
+  }
+}

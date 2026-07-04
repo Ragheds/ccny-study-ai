@@ -1,5 +1,11 @@
 import { NextResponse } from "next/server";
 
+function getErrorMessage(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  if (typeof error === "string") return error;
+  return "Unknown error";
+}
+
 export async function GET() {
   try {
     const urlPresent = Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL);
@@ -12,7 +18,7 @@ export async function GET() {
       anonKey: anonPresent,
       serviceRoleConfigured: serviceRolePresent,
     });
-  } catch (e: any) {
-    return NextResponse.json({ ok: false, error: String(e) }, { status: 500 });
+  } catch (error: unknown) {
+    return NextResponse.json({ ok: false, error: getErrorMessage(error) }, { status: 500 });
   }
 }
