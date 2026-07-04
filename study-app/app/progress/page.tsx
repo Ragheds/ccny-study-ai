@@ -1,49 +1,269 @@
-export default function ProgressPage() {
+"use client";
+
+import { useState } from "react";
+import { KEYS } from "@/lib/storage";
+import { ChatWorkspace, EMPTY_CHAT_WORKSPACE } from "@/lib/chatWorkspace";
+import { EMPTY_FLASHCARD_STORE, FlashcardStore } from "@/lib/flashcards";
+
+/* ── types ────────────────────────────────────────────────────────────────── */
+type Stats = {
+  totalConversations: number;
+  totalMessages: number;
+  totalFlashcardSets: number;
+  totalFlashcards: number;
+  totalCourses: number;
+  totalNotesCourses: number;
+  lastActive: number | null;
+  recentActivity: ActivityItem[];
+};
+
+type ActivityItem = {
+  id: string;
+  type: "conversation" | "flashcard" | "note";
+  label: string;
+  courseCode: string;
+  updatedAt: number;
+};
+
+type ProgressSnapshot = {
+  now: number;
+  stats: Stats;
+  heatmap: number[];
+};
+
+/* ── helper to read localStorage safely ────────────────────────────────────── */
+function readStorage<T>(key: string, fallback: T): T {
+  try {
+    if (typeof window === "undefined") return fallback;
+    const raw = localStorage.getItem(key);
+    if (!raw) return fallback;
+    return JSON.parse(raw) as T;
+  } catch {
+    return fallback;
+  }
+}
+
+function getScopedKey(key: string): string {
+  try {
+    const accountRaw = localStorage.getItem(KEYS.ACCOUNT);
+    if (!accountRaw) return `ccny_account_scope_v1:guest:${key}`;
+    const account = JSON.parse(accountRaw) as { id?: string };
+    if (!account?.id) return `ccny_account_scope_v1:guest:${key}`;
+    return `ccny_account_scope_v1:user:${encodeURIComponent(account.id)}:${key}`;
+  } catch {
+    return key;
+  }
+}
+
+function readScoped<T>(key: string, fallback: T): T {
+  return readStorage<T>(getScopedKey(key), fallback);
+}
+
+function buildProgressSnapshot(): ProgressSnapshot {
+  const chat = readScoped<ChatWorkspace>(KEYS.CHAT_WORKSPACE, EMPTY_CHAT_WORKSPACE);
+  const fc = readScoped<FlashcardStore>(KEYS.FLASHCARDS, EMPTY_FLASHCARD_STORE);
+  const notes = readScoped<Record<string, unknown>>(KEYS.NOTES_V2, {});
+  const courses = readScoped<Array<{ code: string; name: string }>>(KEYS.COURSES, []);
+
+  const allConvs = Object.values(chat.conversationsById ?? {});
+  const totalMessages = allConvs.reduce((acc, c) => acc + (c.messages?.length ?? 0), 0);
+
+  const allSets = Object.values(fc.setsById ?? {});
+  const totalCards = allSets.reduce((acc, s) => acc + (s.cards?.length ?? 0), 0);
+
+  const notesCodes = Object.keys(notes).filter((key) => {
+    const note = notes[key] as { text?: string } | undefined;
+    return typeof note?.text === "string" && note.text.trim().length > 0;
+  });
+
+  const activity: ActivityItem[] = [];
+
+  allConvs.forEach((conversation) => {
+    activity.push({
+      id: `c_${conversation.id}`,
+      type: "conversation",
+      label: conversation.title || "Untitled chat",
+      courseCode: conversation.courseCode || "",
+      updatedAt: conversation.updatedAt || 0,
+    });
+  });
+
+  allSets.forEach((set) => {
+    activity.push({
+      id: `f_${set.id}`,
+      type: "flashcard",
+      label: set.title || "Flashcard set",
+      courseCode: set.courseCode || "",
+      updatedAt: set.updatedAt || 0,
+    });
+  });
+
+  notesCodes.forEach((code) => {
+    const note = notes[code] as { updatedAt?: number };
+    activity.push({
+      id: `n_${code}`,
+      type: "note",
+      label: `${code} notes`,
+      courseCode: code,
+      updatedAt: note.updatedAt || 0,
+    });
+  });
+
+  activity.sort((a, b) => b.updatedAt - a.updatedAt);
+
+  const allTimestamps = activity.map((item) => item.updatedAt).filter(Boolean);
+  const lastActive = allTimestamps[0] ?? null;
+  const now = Date.now();
+  const DAY = 86_400_000;
+  const buckets = Array(28).fill(0) as number[];
+  for (const ts of allTimestamps) {
+    const daysAgo = Math.floor((now - ts) / DAY);
+    if (daysAgo >= 0 && daysAgo < 28) buckets[27 - daysAgo]++;
+  }
+
+  const stats: Stats = {
+    totalConversations: allConvs.length,
+    totalMessages,
+    totalFlashcardSets: allSets.length,
+    totalFlashcards: totalCards,
+    totalCourses: courses.length,
+    totalNotesCourses: notesCodes.length,
+    lastActive,
+    recentActivity: activity.slice(0, 12),
+  };
+
+  return { now, stats, heatmap: buckets };
+}
+
+/* ── activity heatmap ────────────────────────────────────────────────────── */
+function HeatmapCell({ count }: { count: number }) {
+  const level = count === 0 ? 0 : count <= 2 ? 1 : count <= 5 ? 2 : count <= 10 ? 3 : 4;
+  const colors = ["var(--app-surface-muted)", "rgba(255,107,53,.2)", "rgba(255,107,53,.4)", "rgba(255,107,53,.7)", "rgb(255,107,53)"];
   return (
-    <main className="min-h-screen p-8 max-w-4xl mx-auto">
-      <h1 className="text-5xl font-bold mb-3">
-        Product Roadmap
-      </h1>
+    <div title={`${count} activities`} className="h-4 w-4 rounded-sm transition" style={{ background: colors[level] }} />
+  );
+}
 
-      <p className="text-gray-600 mb-10">
-        Development progress for CCNY Study AI.
-      </p>
+/* ── stat card ──────────────────────────────────────────────────────────── */
+function StatCard({ icon, label, value, sub }: { icon: string; label: string; value: string | number; sub?: string }) {
+  return (
+    <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface)] p-5">
+      <div className="text-2xl mb-3">{icon}</div>
+      <p className="text-3xl font-bold text-[var(--app-text)]">{value}</p>
+      <p className="text-sm font-medium text-[var(--app-text)] mt-0.5">{label}</p>
+      {sub && <p className="text-xs text-[var(--app-muted)] mt-1">{sub}</p>}
+    </div>
+  );
+}
 
-      <div className="space-y-6">
-        <div className="border rounded-xl p-5">
-          <h2 className="font-semibold text-lg">✅ Phase 1</h2>
-          <p>Project Setup</p>
+/* ── Page ─────────────────────────────────────────────────────────────────── */
+export default function ProgressPage() {
+  const [snapshot] = useState<ProgressSnapshot>(() => buildProgressSnapshot());
+  const { stats, heatmap, now } = snapshot;
+
+  function formatRelative(ts: number): string {
+    const diff = now - ts;
+    const min = Math.floor(diff / 60_000);
+    const hr = Math.floor(diff / 3_600_000);
+    const day = Math.floor(diff / 86_400_000);
+    if (min < 1) return "just now";
+    if (min < 60) return `${min}m ago`;
+    if (hr < 24) return `${hr}h ago`;
+    if (day < 7) return `${day}d ago`;
+    return new Date(ts).toLocaleDateString([], { month: "short", day: "numeric" });
+  }
+
+  const typeIcon: Record<ActivityItem["type"], string> = {
+    conversation: "💬",
+    flashcard: "🗂️",
+    note: "📝",
+  };
+  const typeLabel: Record<ActivityItem["type"], string> = {
+    conversation: "AI chat",
+    flashcard: "Flashcards",
+    note: "Notes",
+  };
+
+  return (
+    <main className="min-h-screen bg-[var(--app-bg)] text-[var(--app-text)]">
+      <div className="max-w-5xl mx-auto px-6 py-10 space-y-10">
+        {/* header */}
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Study Progress</h1>
+          <p className="text-sm text-[var(--app-muted)] mt-1">
+            Your personal study statistics — updated every visit.
+          </p>
         </div>
 
-        <div className="border rounded-xl p-5">
-          <h2 className="font-semibold text-lg">✅ Phase 2</h2>
-          <p>Landing Page</p>
-        </div>
+        {!stats ? (
+          <div className="py-20 text-center text-[var(--app-muted)]">Loading…</div>
+        ) : (
+          <>
+            {/* stat cards */}
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+              <StatCard icon="💬" label="AI Conversations" value={stats.totalConversations} sub={`${stats.totalMessages} total messages`} />
+              <StatCard icon="🗂️" label="Flashcard Sets" value={stats.totalFlashcardSets} sub={`${stats.totalFlashcards} cards total`} />
+              <StatCard icon="📝" label="Notes Courses" value={stats.totalNotesCourses} sub="courses with saved notes" />
+              <StatCard icon="📚" label="Enrolled Courses" value={stats.totalCourses} sub="from the catalog" />
+            </div>
 
-        <div className="border rounded-xl p-5">
-          <h2 className="font-semibold text-lg">🔄 Phase 3</h2>
-          <p>Study Notes Input</p>
-        </div>
+            {/* last active */}
+            {stats.lastActive && (
+              <div className="flex items-center gap-2 text-sm text-[var(--app-muted)]">
+                <span className="h-2 w-2 rounded-full bg-green-400" />
+                Last study session: <span className="font-medium text-[var(--app-text)]">{formatRelative(stats.lastActive)}</span>
+              </div>
+            )}
 
-        <div className="border rounded-xl p-5">
-          <h2 className="font-semibold text-lg">🔄 Phase 4</h2>
-          <p>AI Summaries</p>
-        </div>
+            {/* heatmap */}
+            <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface)] p-5">
+              <p className="text-sm font-semibold mb-4">Study activity — last 28 days</p>
+              <div className="flex gap-1.5 flex-wrap">
+                {heatmap.map((count, i) => <HeatmapCell key={i} count={count} />)}
+              </div>
+              <div className="mt-3 flex items-center gap-1.5 text-[11px] text-[var(--app-muted)]">
+                <span>Less</span>
+                {[0, 1, 3, 6, 11].map((n) => <HeatmapCell key={n} count={n} />)}
+                <span>More</span>
+              </div>
+            </div>
 
-        <div className="border rounded-xl p-5">
-          <h2 className="font-semibold text-lg">🔄 Phase 5</h2>
-          <p>Quiz Generator</p>
-        </div>
+            {/* recent activity */}
+            {stats.recentActivity.length > 0 && (
+              <div>
+                <h2 className="text-sm font-semibold mb-4 uppercase tracking-wide text-[var(--app-muted)]">Recent Activity</h2>
+                <div className="space-y-2">
+                  {stats.recentActivity.map((item) => (
+                    <div key={item.id} className="flex items-center gap-3 rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface)] px-4 py-3">
+                      <span className="text-lg">{typeIcon[item.type]}</span>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">{item.label}</p>
+                        <p className="text-xs text-[var(--app-muted)]">
+                          {typeLabel[item.type]}
+                          {item.courseCode && ` · `}
+                          {item.courseCode && <span className="font-mono">{item.courseCode}</span>}
+                        </p>
+                      </div>
+                      <span className="text-xs text-[var(--app-muted)] shrink-0">
+                        {item.updatedAt ? formatRelative(item.updatedAt) : "—"}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
-        <div className="border rounded-xl p-5">
-          <h2 className="font-semibold text-lg">🔄 Phase 6</h2>
-          <p>Course-Aware Learning</p>
-        </div>
-
-        <div className="border rounded-xl p-5">
-          <h2 className="font-semibold text-lg">🔄 Phase 7</h2>
-          <p>User Accounts & Saved History</p>
-        </div>
+            {stats.totalConversations === 0 && stats.totalFlashcardSets === 0 && (
+              <div className="rounded-2xl border border-dashed border-[var(--app-border)] py-16 text-center">
+                <div className="text-4xl mb-3">🚀</div>
+                <p className="font-semibold text-[var(--app-text)]">Nothing to track yet</p>
+                <p className="text-sm text-[var(--app-muted)] mt-1">
+                  Start a study session in the AI Tutor — your stats will show up here.
+                </p>
+              </div>
+            )}
+          </>
+        )}
       </div>
     </main>
   );

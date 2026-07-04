@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { KEYS } from "@/lib/storage";
-import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { signOutSupabaseUser } from "@/lib/supabase/auth";
 
 export default function DeleteAccountButton() {
@@ -31,21 +30,23 @@ export default function DeleteAccountButton() {
         keysToClear.forEach((k) => localStorage.removeItem(k));
         // broadcast storage change event if your app listens for it
         window.dispatchEvent(new CustomEvent("account:deleted", { detail: { keys: keysToClear } }));
-      } catch (e) {
-        console.warn("Failed to clear local storage", e);
+      } catch (error: unknown) {
+        console.warn("Failed to clear local storage", error);
       }
 
       // Sign out client session
       try {
         await signOutSupabaseUser();
-      } catch (e) {
+      } catch {
         // ignore
       }
 
       // Redirect to goodbye page
       router.replace("/goodbye");
-    } catch (e: any) {
-      window.alert("Account deletion failed: " + (e?.message || e));
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error ? error.message : typeof error === "string" ? error : "Deletion failed";
+      window.alert("Account deletion failed: " + message);
     } finally {
       setLoading(false);
     }

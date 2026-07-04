@@ -24,21 +24,21 @@ export async function POST(req: NextRequest) {
       try {
         await admin.auth.admin.deleteUser(userId);
         deletedAuth = true;
-      } catch (e) {
-        console.warn("Could not delete auth user via admin API:", e);
+      } catch {
+        console.warn("Could not delete auth user via admin API");
       }
 
       // remove stored app state (if any)
       try {
         await admin.from("user_app_state").delete().eq("user_id", userId);
-      } catch (e) {
-        console.warn("Could not delete user_app_state:", e);
+      } catch {
+        console.warn("Could not delete user_app_state");
       }
 
       // remove avatar from storage
       try {
         await admin.storage.from("avatars").remove([`${userId}/profile.jpg`]);
-      } catch (e) {
+      } catch {
         // ignore
       }
 
@@ -55,11 +55,11 @@ export async function POST(req: NextRequest) {
       await serverClient.from("user_app_state").delete().eq("user_id", userId);
       try {
         await serverClient.storage.from("avatars").remove([`${userId}/profile.jpg`]);
-      } catch (e) {
+      } catch {
         // ignore
       }
-    } catch (e) {
-      console.warn("Fallback deletion error:", e);
+    } catch {
+      console.warn("Fallback deletion error");
     }
 
     // We cannot delete the auth user without service role key; return partial success

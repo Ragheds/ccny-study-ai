@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
@@ -27,6 +27,25 @@ const TABLES_TO_CLEAN = [
 
 const STORAGE_BUCKETS = ["avatars", "uploads", "user-files"];
 
+type StorageItemLike = {
+  name?: string;
+  path?: string;
+};
+
+type DeleteTableResult = {
+  table: string;
+  column?: string | null;
+  ok: boolean;
+  skip?: boolean;
+  message?: string;
+};
+
+function getErrorMessage(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  if (typeof error === "string") return error;
+  return "Unknown error";
+}
+
 async function tryDeleteTableRows(admin: ReturnType<typeof createSupabaseAdminClient>, table: string, userId: string) {
   // Try common column names for user ownership
   const candidateCols = ["user_id", "owner_id", "created_by", "owner"];
@@ -47,10 +66,10 @@ async function tryDeleteTableRows(admin: ReturnType<typeof createSupabaseAdminCl
 
       // other errors: try next column name
       // keep last error to possibly surface below
-    } catch (e: any) {
-      const msg = String(e?.message || e).toLowerCase();
+    } catch (error: unknown) {
+      const msg = getErrorMessage(error).toLowerCase();
       if (msg.includes("does not exist") || msg.includes("relation \"")) {
-        return { table, column: col, ok: false, skip: true, message: String(e) };
+        return { table, column: col, ok: false, skip: true, message: getErrorMessage(error) };
       }
       // continue trying other column names
     }
@@ -70,7 +89,7 @@ async function deleteUserStorage(admin: ReturnType<typeof createSupabaseAdminCli
         limit: 1000,
         offset: 0,
         // recursive not supported in all SDKs; listing a folder should return items inside
-      } as any);
+      });
 
       if (listError) {
         const msg = (listError.message || "").toLowerCase();
@@ -90,10 +109,12 @@ async function deleteUserStorage(admin: ReturnType<typeof createSupabaseAdminCli
       }
 
       // Build paths relative to bucket
-      const paths: string[] = listData.map((item: any) => {
-        // `name` is common; some SDKs return {name, id, updated_at}
-        return item.name ? `${userId}/${item.name}` : item.path ?? item.name ?? "";
-      }).filter(Boolean);
+      const paths: string[] = listData
+        .map((item: StorageItemLike) => {
+          // `name` is common; some SDKs return {name, id, updated_at}
+          return item.name ? `${userId}/${item.name}` : item.path ?? item.name ?? "";
+        })
+        .filter(Boolean);
 
       if (paths.length > 0) {
         const { error: rmErr } = await admin.storage.from(bucket).remove(paths);
@@ -103,16 +124,16 @@ async function deleteUserStorage(admin: ReturnType<typeof createSupabaseAdminCli
         }
         paths.forEach((p) => removed.push({ bucket, path: p }));
       }
-    } catch (e: any) {
+    } catch (error: unknown) {
       // non-fatal: continue with other buckets but collect the error
-      console.warn("Storage cleanup error for bucket", bucket, e?.message || e);
+      console.warn("Storage cleanup error for bucket", bucket, getErrorMessage(error));
     }
   }
 
   return removed;
 }
 
-export async function POST(request: NextRequest) {
+export async function POST() {
   try {
     const serverSupabase = await createSupabaseServerClient();
     if (!serverSupabase) {
@@ -128,19 +149,19 @@ export async function POST(request: NextRequest) {
     let admin;
     try {
       admin = createSupabaseAdminClient();
-    } catch (e: any) {
-      console.error("Admin client not available:", e?.message || e);
+    } catch (error: unknown) {
+      console.error("Admin client not available:", getErrorMessage(error));
       return NextResponse.json({ error: "Supabase service role not configured on server" }, { status: 500 });
     }
-    const tableResults: any[] = [];
+    const tableResults: DeleteTableResult[] = [];
 
     // Delete rows from tables listed — best-effort; skip missing tables
     for (const table of TABLES_TO_CLEAN) {
       try {
         const res = await tryDeleteTableRows(admin, table, userId);
         tableResults.push(res);
-      } catch (e: any) {
-        tableResults.push({ table, ok: false, message: String(e?.message || e) });
+      } catch (error: unknown) {
+        tableResults.push({ table, ok: false, message: getErrorMessage(error) });
       }
     }
 
@@ -148,11 +169,11 @@ export async function POST(request: NextRequest) {
     const removedFiles = await deleteUserStorage(admin, userId);
 
     // Finally delete the auth user via SDK
-    const deleteResp = await admin.auth.admin.deleteUser(userId as string).catch((err: any) => ({ error: err }));
+    const deleteResp = await admin.auth.admin.deleteUser(userId as string).catch((error: unknown) => ({ error }));
 
     // If SDK returned an error, attempt REST fallback using service role key
-    if ((deleteResp as any)?.error) {
-      console.warn("Admin SDK deleteUser failed, attempting REST fallback:", (deleteResp as any).error);
+    if ((deleteResp as { error?: unknown }).error) {
+      console.warn("Admin SDK deleteUser failed, attempting REST fallback:", (deleteResp as { error?: unknown }).error);
       const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
       const serviceRole = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE;
 
@@ -172,9 +193,9 @@ export async function POST(request: NextRequest) {
           }
 
           return NextResponse.json({ success: true, deletedVia: "rest", restStatus: restRes.status, tables: tableResults, removedFiles }, { status: 200 });
-        } catch (e: any) {
-          console.error("REST fallback error:", e?.message || e);
-          return NextResponse.json({ error: "Failed to delete auth user (admin sdk + REST fallback)", deleteResp, restError: String(e), tables: tableResults, removedFiles }, { status: 500 });
+        } catch (error: unknown) {
+          console.error("REST fallback error:", getErrorMessage(error));
+          return NextResponse.json({ error: "Failed to delete auth user (admin sdk + REST fallback)", deleteResp, restError: getErrorMessage(error), tables: tableResults, removedFiles }, { status: 500 });
         }
       }
 
@@ -182,8 +203,8 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json({ success: true, deletedVia: "sdk", deleteResp, tables: tableResults, removedFiles }, { status: 200 });
-  } catch (err: any) {
-    console.error("Account deletion error:", err);
-    return NextResponse.json({ error: err?.message || String(err) }, { status: 500 });
+  } catch (error: unknown) {
+    console.error("Account deletion error:", error);
+    return NextResponse.json({ error: getErrorMessage(error) }, { status: 500 });
   }
 }

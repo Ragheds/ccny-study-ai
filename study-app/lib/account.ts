@@ -19,6 +19,7 @@ type AuthUserLike = {
     email?: unknown;
     avatar_url?: unknown;
     picture?: unknown;
+    [key: string]: unknown;
   } | null;
 };
 
@@ -82,7 +83,7 @@ export function createAccountProfileFromAuthUser(user: AuthUserLike): AccountPro
     : isCompactAvatarUrl(user.user_metadata?.picture)
       ? user.user_metadata.picture
       : undefined;
-  const metadataAny = user.user_metadata as any | undefined;
+  const metadataAny = user.user_metadata;
   const metadataBanner = typeof metadataAny?.banner_color === "string"
     ? metadataAny.banner_color
     : typeof metadataAny?.bannerColor === "string"

@@ -193,13 +193,13 @@ export default function AccountPage() {
     (async () => {
       try {
         const { data } = await supabase.auth.getUser();
-        const user = data.user as any | null;
+        const user = data.user;
         if (!user) return;
-        const identities = user.identities as Array<any> | undefined;
-        const google = (identities || []).some((i) => i?.provider === "google")
-          || (user?.app_metadata?.provider === "google");
+        const identities = user.identities ?? [];
+        const google = identities.some((identity: { provider?: string | null } | null) => identity?.provider === "google")
+          || user.app_metadata?.provider === "google";
         if (mounted) setIsGoogleManaged(Boolean(google));
-      } catch (e) {
+      } catch {
         // ignore
       }
     })();
@@ -215,8 +215,10 @@ export default function AccountPage() {
     if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current);
     if (toastExitRef.current) window.clearTimeout(toastExitRef.current);
 
-    setToastHiding(false);
-    setToastVisible(true);
+    window.setTimeout(() => {
+      setToastHiding(false);
+      setToastVisible(true);
+    }, 0);
 
     // stay visible for 2500ms, then play exit animation (~420ms), then clear notice
     toastTimerRef.current = window.setTimeout(() => {
@@ -373,22 +375,23 @@ export default function AccountPage() {
             removeFromStorage(key);
           }
           removeFromStorage(STORAGE_KEYS.ACCOUNT);
-        } catch (e) {
+        } catch {
           // ignore local cleanup errors
         }
 
         // sign out client and clear account in UI
         try {
           await signOutSupabaseUser();
-        } catch (e) {
+        } catch {
           // ignore
         }
         setAccount(null);
         router.push("/");
       }, 2400);
-    } catch (err: any) {
-      console.error("Account deletion error:", err);
-      setDeletionError(err?.message ?? String(err));
+    } catch (error: unknown) {
+      console.error("Account deletion error:", error);
+      const message = error instanceof Error ? error.message : typeof error === "string" ? error : "Deletion failed";
+      setDeletionError(message);
       setShowDeleteStage(0);
     } finally {
       setDeleting(false);
@@ -480,7 +483,7 @@ export default function AccountPage() {
                             if (supabase) {
                               await supabase.auth.updateUser({ data: { banner_color: c } });
                             }
-                          } catch (e) {
+                          } catch {
                             // ignore persistence error
                           }
                           setAccount((acct) => (acct ? updateAccountBannerColor(acct, c) : acct));
@@ -599,7 +602,7 @@ export default function AccountPage() {
                     <button
                       type="button"
                       onClick={() => setShowDeleteStage(1)}
-                      className="mt-4 w-full rounded-2xl border border-red-500/40 bg-red-600/5 px-4 py-3 text-sm font-semibold text-red-500 hover:bg-red-600/10"
+                      className="mt-4 w-full rounded-2xl border border-red-400/40 bg-red-600/5 px-4 py-3 text-sm font-semibold text-red-500 hover:bg-red-600/10"
                     >
                       Delete Account
                     </button>
