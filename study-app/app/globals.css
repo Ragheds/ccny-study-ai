@@ -18,13 +18,6 @@
   --app-accent-soft: #dbeafe;
 }
 
-:root[data-theme="inline"] {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: Arial, Helvetica, sans-serif;
-  --font-mono: "Courier New", Courier, monospace;
-}
-
 .dark {
   color-scheme: dark;
   --background: #000000;
@@ -983,7 +976,7 @@ body:has(.auth-page) {
   }
 }
 
-/* ── AITutor animations (added) ─────────────────────────────────── */
+/* â”€â”€ AITutor animations (added) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 
 /* Orbiting study emojis */
 @keyframes emoji-orbit {
