@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
-import { KEYS } from "@/lib/storage";
+import { useEffect, useState } from "react";
+import { KEYS, readStorageRaw, STORAGE_CHANGE_EVENT } from "@/lib/storage";
+import { useHydrated } from "@/hooks/useStoredValue";
 import { ChatWorkspace, EMPTY_CHAT_WORKSPACE } from "@/lib/chatWorkspace";
 import { EMPTY_FLASHCARD_STORE, FlashcardStore } from "@/lib/flashcards";
 
@@ -31,32 +32,17 @@ type ProgressSnapshot = {
   heatmap: number[];
 };
 
-/* ── helper to read localStorage safely ────────────────────────────────────── */
-function readStorage<T>(key: string, fallback: T): T {
+/* ── read account-scoped storage using the app's real scoping rules ────────── */
+// (previously this page hand-rolled its own copy of the account-scope-key
+// logic that already lives in lib/storage.ts — two implementations of the
+// same rule drift apart the moment one of them changes)
+function readScoped<T>(key: string, fallback: T): T {
   try {
-    if (typeof window === "undefined") return fallback;
-    const raw = localStorage.getItem(key);
-    if (!raw) return fallback;
-    return JSON.parse(raw) as T;
+    const raw = readStorageRaw(key);
+    return raw ? (JSON.parse(raw) as T) : fallback;
   } catch {
     return fallback;
   }
-}
-
-function getScopedKey(key: string): string {
-  try {
-    const accountRaw = localStorage.getItem(KEYS.ACCOUNT);
-    if (!accountRaw) return `ccny_account_scope_v1:guest:${key}`;
-    const account = JSON.parse(accountRaw) as { id?: string };
-    if (!account?.id) return `ccny_account_scope_v1:guest:${key}`;
-    return `ccny_account_scope_v1:user:${encodeURIComponent(account.id)}:${key}`;
-  } catch {
-    return key;
-  }
-}
-
-function readScoped<T>(key: string, fallback: T): T {
-  return readStorage<T>(getScopedKey(key), fallback);
 }
 
 function buildProgressSnapshot(): ProgressSnapshot {
@@ -158,7 +144,37 @@ function StatCard({ icon, label, value, sub }: { icon: string; label: string; va
 
 /* ── Page ─────────────────────────────────────────────────────────────────── */
 export default function ProgressPage() {
-  const [snapshot] = useState<ProgressSnapshot>(() => buildProgressSnapshot());
+  const hydrated = useHydrated();
+  const [snapshot, setSnapshot] = useState<ProgressSnapshot | null>(null);
+
+  useEffect(() => {
+    if (!hydrated) return;
+
+    // Recompute whenever this page mounts, whenever any study data changes
+    // elsewhere in the app (new chat, new flashcard set, saved note), and
+    // whenever the tab regains focus — otherwise these stats freeze at
+    // whatever they were the moment you first opened this page.
+    const refresh = () => setSnapshot(buildProgressSnapshot());
+    refresh();
+
+    window.addEventListener(STORAGE_CHANGE_EVENT, refresh);
+    window.addEventListener("focus", refresh);
+    return () => {
+      window.removeEventListener(STORAGE_CHANGE_EVENT, refresh);
+      window.removeEventListener("focus", refresh);
+    };
+  }, [hydrated]);
+
+  if (!hydrated || !snapshot) {
+    return (
+      <main className="min-h-screen bg-[var(--app-bg)]">
+        <div className="max-w-5xl mx-auto px-6 py-10">
+          <div className="py-20 text-center text-[var(--app-muted)]">Loading…</div>
+        </div>
+      </main>
+    );
+  }
+
   const { stats, heatmap, now } = snapshot;
 
   function formatRelative(ts: number): string {
@@ -195,74 +211,68 @@ export default function ProgressPage() {
           </p>
         </div>
 
-        {!stats ? (
-          <div className="py-20 text-center text-[var(--app-muted)]">Loading…</div>
-        ) : (
-          <>
-            {/* stat cards */}
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-              <StatCard icon="💬" label="AI Conversations" value={stats.totalConversations} sub={`${stats.totalMessages} total messages`} />
-              <StatCard icon="🗂️" label="Flashcard Sets" value={stats.totalFlashcardSets} sub={`${stats.totalFlashcards} cards total`} />
-              <StatCard icon="📝" label="Notes Courses" value={stats.totalNotesCourses} sub="courses with saved notes" />
-              <StatCard icon="📚" label="Enrolled Courses" value={stats.totalCourses} sub="from the catalog" />
-            </div>
+        {/* stat cards */}
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+          <StatCard icon="💬" label="AI Conversations" value={stats.totalConversations} sub={`${stats.totalMessages} total messages`} />
+          <StatCard icon="🗂️" label="Flashcard Sets" value={stats.totalFlashcardSets} sub={`${stats.totalFlashcards} cards total`} />
+          <StatCard icon="📝" label="Notes Courses" value={stats.totalNotesCourses} sub="courses with saved notes" />
+          <StatCard icon="📚" label="Enrolled Courses" value={stats.totalCourses} sub="from the catalog" />
+        </div>
 
-            {/* last active */}
-            {stats.lastActive && (
-              <div className="flex items-center gap-2 text-sm text-[var(--app-muted)]">
-                <span className="h-2 w-2 rounded-full bg-green-400" />
-                Last study session: <span className="font-medium text-[var(--app-text)]">{formatRelative(stats.lastActive)}</span>
-              </div>
-            )}
+        {/* last active */}
+        {stats.lastActive && (
+          <div className="flex items-center gap-2 text-sm text-[var(--app-muted)]">
+            <span className="h-2 w-2 rounded-full bg-green-400" />
+            Last study session: <span className="font-medium text-[var(--app-text)]">{formatRelative(stats.lastActive)}</span>
+          </div>
+        )}
 
-            {/* heatmap */}
-            <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface)] p-5">
-              <p className="text-sm font-semibold mb-4">Study activity — last 28 days</p>
-              <div className="flex gap-1.5 flex-wrap">
-                {heatmap.map((count, i) => <HeatmapCell key={i} count={count} />)}
-              </div>
-              <div className="mt-3 flex items-center gap-1.5 text-[11px] text-[var(--app-muted)]">
-                <span>Less</span>
-                {[0, 1, 3, 6, 11].map((n) => <HeatmapCell key={n} count={n} />)}
-                <span>More</span>
-              </div>
-            </div>
+        {/* heatmap */}
+        <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface)] p-5">
+          <p className="text-sm font-semibold mb-4">Study activity — last 28 days</p>
+          <div className="flex gap-1.5 flex-wrap">
+            {heatmap.map((count, i) => <HeatmapCell key={i} count={count} />)}
+          </div>
+          <div className="mt-3 flex items-center gap-1.5 text-[11px] text-[var(--app-muted)]">
+            <span>Less</span>
+            {[0, 1, 3, 6, 11].map((n) => <HeatmapCell key={n} count={n} />)}
+            <span>More</span>
+          </div>
+        </div>
 
-            {/* recent activity */}
-            {stats.recentActivity.length > 0 && (
-              <div>
-                <h2 className="text-sm font-semibold mb-4 uppercase tracking-wide text-[var(--app-muted)]">Recent Activity</h2>
-                <div className="space-y-2">
-                  {stats.recentActivity.map((item) => (
-                    <div key={item.id} className="flex items-center gap-3 rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface)] px-4 py-3">
-                      <span className="text-lg">{typeIcon[item.type]}</span>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate">{item.label}</p>
-                        <p className="text-xs text-[var(--app-muted)]">
-                          {typeLabel[item.type]}
-                          {item.courseCode && ` · `}
-                          {item.courseCode && <span className="font-mono">{item.courseCode}</span>}
-                        </p>
-                      </div>
-                      <span className="text-xs text-[var(--app-muted)] shrink-0">
-                        {item.updatedAt ? formatRelative(item.updatedAt) : "—"}
-                      </span>
-                    </div>
-                  ))}
+        {/* recent activity */}
+        {stats.recentActivity.length > 0 && (
+          <div>
+            <h2 className="text-sm font-semibold mb-4 uppercase tracking-wide text-[var(--app-muted)]">Recent Activity</h2>
+            <div className="space-y-2">
+              {stats.recentActivity.map((item) => (
+                <div key={item.id} className="flex items-center gap-3 rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface)] px-4 py-3">
+                  <span className="text-lg">{typeIcon[item.type]}</span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{item.label}</p>
+                    <p className="text-xs text-[var(--app-muted)]">
+                      {typeLabel[item.type]}
+                      {item.courseCode && ` · `}
+                      {item.courseCode && <span className="font-mono">{item.courseCode}</span>}
+                    </p>
+                  </div>
+                  <span className="text-xs text-[var(--app-muted)] shrink-0">
+                    {item.updatedAt ? formatRelative(item.updatedAt) : "—"}
+                  </span>
                 </div>
-              </div>
-            )}
+              ))}
+            </div>
+          </div>
+        )}
 
-            {stats.totalConversations === 0 && stats.totalFlashcardSets === 0 && (
-              <div className="rounded-2xl border border-dashed border-[var(--app-border)] py-16 text-center">
-                <div className="text-4xl mb-3">🚀</div>
-                <p className="font-semibold text-[var(--app-text)]">Nothing to track yet</p>
-                <p className="text-sm text-[var(--app-muted)] mt-1">
-                  Start a study session in the AI Tutor — your stats will show up here.
-                </p>
-              </div>
-            )}
-          </>
+        {stats.totalConversations === 0 && stats.totalFlashcardSets === 0 && (
+          <div className="rounded-2xl border border-dashed border-[var(--app-border)] py-16 text-center">
+            <div className="text-4xl mb-3">🚀</div>
+            <p className="font-semibold text-[var(--app-text)]">Nothing to track yet</p>
+            <p className="text-sm text-[var(--app-muted)] mt-1">
+              Start a study session in the AI Tutor — your stats will show up here.
+            </p>
+          </div>
         )}
       </div>
     </main>
