@@ -15,9 +15,41 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://ccny-study-ai.vercel.app";
+
 export const metadata: Metadata = {
-  title: "CCNY Study AI",
-  description: "AI-powered study platform built for CCNY students",
+  metadataBase: new URL(SITE_URL),
+  title: {
+    default: "CCNY Study AI",
+    template: "%s · CCNY Study AI",
+  },
+  description:
+    "AI-powered study platform built for CCNY students — course-aware tutoring, flashcards, quizzes, and notes for every major at The City College of New York.",
+  applicationName: "CCNY Study AI",
+  keywords: [
+    "CCNY",
+    "City College of New York",
+    "study app",
+    "AI tutor",
+    "flashcards",
+    "college study tools",
+  ],
+  openGraph: {
+    title: "CCNY Study AI",
+    description: "Turn your CCNY courses into tutoring, flashcards, quizzes, and more.",
+    url: SITE_URL,
+    siteName: "CCNY Study AI",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "CCNY Study AI",
+    description: "Turn your CCNY courses into tutoring, flashcards, quizzes, and more.",
+  },
+};
+
+export const viewport = {
+  themeColor: "#111827",
 };
 
 export default function RootLayout({
