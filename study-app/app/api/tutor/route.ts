@@ -315,8 +315,6 @@ export async function POST(req: NextRequest) {
     const models = ROUTERS[routeKey];
     const historyMessages = normalizeHistory(body.history);
 
-    console.log(`Route: ${routeKey} | Models: ${models.join(", ")}`);
-
     const requestBody = {
       messages: [
         { role: "system", content: systemPrompt },
