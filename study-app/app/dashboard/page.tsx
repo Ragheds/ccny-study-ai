@@ -51,7 +51,370 @@ function updateDashboardUrl(tab: TabId, courseCode?: string | null): void {
   const query = params.toString();
   window.history.replaceState(null, "", `${window.location.pathname}${query ? `?${query}` : ""}`);
 }
+/* ── quiz parsing + tab ───────────────────────────────────────────────────
+   The tutor API already generates quiz text via action:"quiz" (see
+   app/api/tutor/route.ts) — this tab was the only piece missing to turn
+   that into something a student can actually take. */
+type QuizQuestion = {
+  question: string;
+  options: Record<string, string>;
+  answer: string;
+};
 
+function parseQuiz(raw: string): QuizQuestion[] {
+  const questions: QuizQuestion[] = [];
+  const blocks = raw.split(/\n(?=\d+[.)])/g).filter((block) => block.trim());
+
+  for (const block of blocks) {
+    const lines = block.trim().split("\n").filter((line) => line.trim());
+    if (!lines.length) continue;
+
+    const questionText = lines[0].replace(/^\d+[.)]\s*/, "").trim();
+    const options: Record<string, string> = {};
+    let answer = "";
+
+    for (const line of lines.slice(1)) {
+      const optionMatch = line.match(/^([A-D])[.)]\s+(.+)/);
+      if (optionMatch) options[optionMatch[1]] = optionMatch[2].trim();
+
+      const answerMatch = line.match(/^(?:Answer|Correct(?:\s+Answer)?):\s*([A-D])/i);
+      if (answerMatch) answer = answerMatch[1].toUpperCase();
+    }
+
+    if (questionText && Object.keys(options).length >= 2 && answer) {
+      questions.push({ question: questionText, options, answer });
+    }
+  }
+
+  return questions;
+}
+
+function QuizzesTab({ major, courses }: { major: SavedMajor; courses: SavedCourse[] }) {
+  const [selectedCode, setSelectedCode] = useState(courses[0]?.code ?? "");
+  const [topic, setTopic] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [progressLabel, setProgressLabel] = useState("");
+  const [questions, setQuestions] = useState<QuizQuestion[]>([]);
+  const [answers, setAnswers] = useState<Record<number, string>>({});
+  const [submitted, setSubmitted] = useState(false);
+  const [error, setError] = useState("");
+
+  const selectedCourse = courses.find((course) => course.code === selectedCode) ?? courses[0] ?? null;
+
+  if (courses.length === 0 || !selectedCourse) {
+    return (
+      <div className="py-20 text-center">
+        <p className="text-[var(--app-muted)] mb-4">Add courses first to take quizzes.</p>
+        <Link href="/majors" className="text-sm font-semibold text-[var(--app-accent)] hover:underline">
+          Browse Majors →
+        </Link>
+      </div>
+    );
+  }
+
+  const generate = async () => {
+    if (loading) return;
+    setLoading(true);
+    setError("");
+    setQuestions([]);
+    setAnswers({});
+    setSubmitted(false);
+    setProgressLabel("Building your quiz…");
+
+    try {
+      const response = await fetch("/api/tutor", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: topic.trim()
+            ? `Generate a 5-question multiple choice quiz about: ${topic.trim()}`
+            : `Generate a 5-question multiple choice quiz covering ${selectedCourse.name} (${selectedCourse.code}) core topics.`,
+          action: "quiz",
+          context: {
+            major: major.name,
+            majorCode: major.code,
+            school: major.school,
+            course: selectedCourse.name,
+            courseCode: selectedCourse.code,
+            courseSection: selectedCourse.section,
+          },
+        }),
+      });
+
+      if (!response.ok || !response.body) throw new Error("Request failed. Try again.");
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let raw = "";
+      const dots = ["Generating.", "Generating..", "Generating..."];
+      let dotIndex = 0;
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        raw += decoder.decode(value, { stream: true });
+        dotIndex = (dotIndex + 1) % dots.length;
+        setProgressLabel(dots[dotIndex]);
+      }
+
+      const parsed = parseQuiz(raw);
+      if (parsed.length === 0) throw new Error("Couldn't build a quiz from that. Try a more specific topic.");
+      setQuestions(parsed);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Something went wrong.");
+    } finally {
+      setLoading(false);
+      setProgressLabel("");
+    }
+  };
+
+  const score = questions.filter(
+    (question, index) => answers[index]?.toUpperCase() === question.answer.toUpperCase()
+  ).length;
+
+  if (questions.length === 0) {
+    return (
+      <div className="mx-auto max-w-2xl py-10">
+        <div className="mb-8 text-center">
+          <div
+            className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl text-2xl"
+            style={{ background: "var(--app-surface)", border: "1px solid var(--app-border)" }}
+          >
+            📝
+          </div>
+          <h2 className="text-xl font-bold">Practice Quiz</h2>
+          <p className="mt-1.5 text-sm text-[var(--app-muted)]">
+            AI-generated multiple choice quiz tailored to your course.
+          </p>
+        </div>
+
+        <div className="rounded-3xl border border-[var(--app-border)] bg-[var(--app-surface)] p-6 space-y-5">
+          <div>
+            <label className="mb-2 block text-xs font-semibold uppercase tracking-wide text-[var(--app-muted)]">
+              Course
+            </label>
+            <div className="flex flex-wrap gap-2">
+              {courses.map((course) => (
+                <button
+                  key={course.code}
+                  type="button"
+                  onClick={() => setSelectedCode(course.code)}
+                  className="rounded-xl border px-3 py-1.5 text-xs font-semibold transition"
+                  style={{
+                    background: course.code === selectedCode ? course.color : "var(--app-surface-muted)",
+                    color: course.code === selectedCode ? "#fff" : "var(--app-muted)",
+                    borderColor: course.code === selectedCode ? course.color : "var(--app-border)",
+                  }}
+                >
+                  {course.code}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <label className="mb-2 block text-xs font-semibold uppercase tracking-wide text-[var(--app-muted)]">
+              Topic (optional)
+            </label>
+            <input
+              placeholder="e.g. limits, recursion, mitosis…"
+              value={topic}
+              onChange={(event) => setTopic(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") void generate();
+              }}
+              className="w-full rounded-xl border border-[var(--app-border)] bg-[var(--app-surface-muted)] px-4 py-2.5 text-sm text-[var(--app-text)] outline-none placeholder:text-[var(--app-muted)]"
+            />
+          </div>
+
+          {error && <p className="text-sm text-red-500">{error}</p>}
+
+          <button
+            type="button"
+            onClick={generate}
+            disabled={loading}
+            className="w-full rounded-2xl py-3.5 text-sm font-semibold text-white transition disabled:opacity-50"
+            style={{ background: "linear-gradient(135deg,#FF6B35,#F7931E)", boxShadow: "0 4px 14px rgba(255,107,53,.3)" }}
+          >
+            {loading ? progressLabel || "Generating…" : "Generate Quiz →"}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!submitted) {
+    return (
+      <div className="mx-auto max-w-2xl space-y-6 py-10">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-lg font-bold">{selectedCourse.code} Quiz</h2>
+            {topic && <p className="mt-0.5 text-xs text-[var(--app-muted)]">Topic: {topic}</p>}
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              setQuestions([]);
+              setAnswers({});
+              setTopic("");
+            }}
+            className="text-sm text-[var(--app-muted)] transition hover:text-[var(--app-text)]"
+          >
+            ← New quiz
+          </button>
+        </div>
+
+        <div className="space-y-5">
+          {questions.map((question, questionIndex) => (
+            <div key={questionIndex} className="space-y-3 rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface)] p-5">
+              <p className="text-sm font-semibold text-[var(--app-text)]">
+                <span className="mr-2 text-[var(--app-muted)]">{questionIndex + 1}.</span>
+                {question.question}
+              </p>
+              <div className="grid gap-2">
+                {(["A", "B", "C", "D"] as const).map((letter) => {
+                  if (!question.options[letter]) return null;
+                  const isSelected = answers[questionIndex] === letter;
+                  return (
+                    <button
+                      key={letter}
+                      type="button"
+                      onClick={() => setAnswers((prev) => ({ ...prev, [questionIndex]: letter }))}
+                      className="flex items-center gap-3 rounded-xl border px-4 py-3 text-left text-sm transition"
+                      style={{
+                        background: isSelected ? "var(--app-text)" : "var(--app-surface-muted)",
+                        color: isSelected ? "var(--app-bg)" : "var(--app-text)",
+                        borderColor: isSelected ? "var(--app-text)" : "var(--app-border)",
+                      }}
+                    >
+                      <span
+                        className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border text-xs font-bold"
+                        style={{ borderColor: isSelected ? "var(--app-bg)" : "var(--app-border)", opacity: isSelected ? 0.7 : 1 }}
+                      >
+                        {letter}
+                      </span>
+                      {question.options[letter]}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <button
+          type="button"
+          onClick={() => setSubmitted(true)}
+          disabled={Object.keys(answers).length < questions.length}
+          className="w-full rounded-2xl py-3.5 text-sm font-semibold text-white transition disabled:opacity-40"
+          style={{ background: "linear-gradient(135deg,#FF6B35,#F7931E)", boxShadow: "0 4px 14px rgba(255,107,53,.3)" }}
+        >
+          Submit Quiz ({Object.keys(answers).length}/{questions.length} answered)
+        </button>
+      </div>
+    );
+  }
+
+  const percentage = Math.round((score / questions.length) * 100);
+  const resultEmoji = percentage >= 80 ? "🎉" : percentage >= 60 ? "👍" : "📖";
+  const resultMessage = percentage >= 80 ? "Great job!" : percentage >= 60 ? "Good work — keep studying!" : "Keep reviewing and try again.";
+
+  return (
+    <div className="mx-auto max-w-2xl space-y-6 py-10">
+      <div className="rounded-3xl border border-[var(--app-border)] bg-[var(--app-surface)] p-8 text-center">
+        <div className="mb-4 text-5xl">{resultEmoji}</div>
+        <p className="text-5xl font-bold text-[var(--app-text)]">{percentage}%</p>
+        <p className="mt-2 text-sm text-[var(--app-muted)]">
+          {score} / {questions.length} correct · {resultMessage}
+        </p>
+
+        <div className="mt-5 h-2 overflow-hidden rounded-full" style={{ background: "var(--app-surface-muted)" }}>
+          <div
+            className="h-full rounded-full transition-all duration-700"
+            style={{
+              width: `${percentage}%`,
+              background: percentage >= 80 ? "#22C55E" : percentage >= 60 ? "#F59E0B" : "#EF4444",
+            }}
+          />
+        </div>
+
+        <div className="mt-6 flex justify-center gap-3">
+          <button
+            type="button"
+            onClick={() => {
+              setAnswers({});
+              setSubmitted(false);
+            }}
+            className="rounded-xl border border-[var(--app-border)] px-5 py-2.5 text-sm font-semibold text-[var(--app-text)] transition hover:border-[var(--app-border-strong)]"
+          >
+            Retry same quiz
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setQuestions([]);
+              setAnswers({});
+              setSubmitted(false);
+              setTopic("");
+            }}
+            className="rounded-xl px-5 py-2.5 text-sm font-semibold text-white transition"
+            style={{ background: "linear-gradient(135deg,#FF6B35,#F7931E)" }}
+          >
+            New quiz
+          </button>
+        </div>
+      </div>
+
+      <div className="space-y-4">
+        <h3 className="text-xs font-semibold uppercase tracking-widest text-[var(--app-muted)]">Review</h3>
+        {questions.map((question, questionIndex) => {
+          const userAnswer = answers[questionIndex];
+          const isCorrect = userAnswer?.toUpperCase() === question.answer.toUpperCase();
+          return (
+            <div
+              key={questionIndex}
+              className="space-y-3 rounded-2xl border p-5"
+              style={{
+                borderColor: isCorrect ? "rgba(34,197,94,.4)" : "rgba(239,68,68,.4)",
+                background: isCorrect ? "rgba(34,197,94,.04)" : "rgba(239,68,68,.04)",
+              }}
+            >
+              <div className="flex items-start gap-2">
+                <span className="shrink-0 text-base">{isCorrect ? "✅" : "❌"}</span>
+                <p className="text-sm font-semibold text-[var(--app-text)]">
+                  {questionIndex + 1}. {question.question}
+                </p>
+              </div>
+              <div className="grid gap-1.5 pl-7">
+                {(["A", "B", "C", "D"] as const).map((letter) => {
+                  if (!question.options[letter]) return null;
+                  const isRightAnswer = letter === question.answer.toUpperCase();
+                  const wasSelected = userAnswer === letter;
+                  return (
+                    <div
+                      key={letter}
+                      className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm"
+                      style={{
+                        background: isRightAnswer ? "rgba(34,197,94,.12)" : wasSelected ? "rgba(239,68,68,.12)" : "transparent",
+                        color: isRightAnswer ? "#16A34A" : wasSelected ? "#DC2626" : "var(--app-muted)",
+                        fontWeight: isRightAnswer || wasSelected ? 600 : 400,
+                      }}
+                    >
+                      <span className="w-5 shrink-0 font-mono text-xs">{letter}.</span>
+                      {question.options[letter]}
+                      {isRightAnswer && <span className="ml-auto text-xs">✓ correct</span>}
+                      {wasSelected && !isRightAnswer && <span className="ml-auto text-xs">your answer</span>}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
 export default function DashboardPage() {
   const hydrated = useHydrated();
   const [major] = useStoredValue<SavedMajor | null>(KEYS.MAJOR, null);
@@ -245,9 +608,8 @@ export default function DashboardPage() {
           />
         )}
 
-        {activeTab === "quizzes" && (
-          <ComingSoon title="Quizzes" desc="Practice quizzes tailored to your courses." />
-        )}
+        {activeTab === "quizzes" && major && <QuizzesTab major={major} courses={courses} />
+         }
 
         {activeTab === "planner" && (
           <ComingSoon title="Study Planner" desc="Plan your study schedule around your courses." />
