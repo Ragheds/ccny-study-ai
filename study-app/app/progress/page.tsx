@@ -5,6 +5,7 @@ import { KEYS, readStorageRaw, STORAGE_CHANGE_EVENT } from "@/lib/storage";
 import { useHydrated } from "@/hooks/useStoredValue";
 import { ChatWorkspace, EMPTY_CHAT_WORKSPACE } from "@/lib/chatWorkspace";
 import { EMPTY_FLASHCARD_STORE, FlashcardStore } from "@/lib/flashcards";
+import { EMPTY_QUIZ_STORE, QuizStore } from "@/lib/quizzes";
 
 /* ── types ────────────────────────────────────────────────────────────────── */
 type Stats = {
@@ -14,13 +15,15 @@ type Stats = {
   totalFlashcards: number;
   totalCourses: number;
   totalNotesCourses: number;
+  totalQuizzes: number;
+  averageQuizScore: number | null;
   lastActive: number | null;
   recentActivity: ActivityItem[];
 };
 
 type ActivityItem = {
   id: string;
-  type: "conversation" | "flashcard" | "note";
+  type: "conversation" | "flashcard" | "note" | "quiz";
   label: string;
   courseCode: string;
   updatedAt: number;
@@ -33,9 +36,6 @@ type ProgressSnapshot = {
 };
 
 /* ── read account-scoped storage using the app's real scoping rules ────────── */
-// (previously this page hand-rolled its own copy of the account-scope-key
-// logic that already lives in lib/storage.ts — two implementations of the
-// same rule drift apart the moment one of them changes)
 function readScoped<T>(key: string, fallback: T): T {
   try {
     const raw = readStorageRaw(key);
@@ -48,6 +48,7 @@ function readScoped<T>(key: string, fallback: T): T {
 function buildProgressSnapshot(): ProgressSnapshot {
   const chat = readScoped<ChatWorkspace>(KEYS.CHAT_WORKSPACE, EMPTY_CHAT_WORKSPACE);
   const fc = readScoped<FlashcardStore>(KEYS.FLASHCARDS, EMPTY_FLASHCARD_STORE);
+  const quizzes = readScoped<QuizStore>(KEYS.QUIZ_RESULTS, EMPTY_QUIZ_STORE);
   const notes = readScoped<Record<string, unknown>>(KEYS.NOTES_V2, {});
   const courses = readScoped<Array<{ code: string; name: string }>>(KEYS.COURSES, []);
 
@@ -56,6 +57,19 @@ function buildProgressSnapshot(): ProgressSnapshot {
 
   const allSets = Object.values(fc.setsById ?? {});
   const totalCards = allSets.reduce((acc, s) => acc + (s.cards?.length ?? 0), 0);
+
+  const allQuizAttempts = Object.values(quizzes.attemptsById ?? {});
+  const averageQuizScore =
+    allQuizAttempts.length > 0
+      ? Math.round(
+          (allQuizAttempts.reduce(
+            (acc, attempt) => acc + (attempt.totalQuestions ? attempt.correctCount / attempt.totalQuestions : 0),
+            0
+          ) /
+            allQuizAttempts.length) *
+            100
+        )
+      : null;
 
   const notesCodes = Object.keys(notes).filter((key) => {
     const note = notes[key] as { text?: string } | undefined;
@@ -81,6 +95,16 @@ function buildProgressSnapshot(): ProgressSnapshot {
       label: set.title || "Flashcard set",
       courseCode: set.courseCode || "",
       updatedAt: set.updatedAt || 0,
+    });
+  });
+
+  allQuizAttempts.forEach((attempt) => {
+    activity.push({
+      id: `q_${attempt.id}`,
+      type: "quiz",
+      label: attempt.title || "Quiz",
+      courseCode: attempt.courseCode || "",
+      updatedAt: attempt.createdAt || 0,
     });
   });
 
@@ -114,6 +138,8 @@ function buildProgressSnapshot(): ProgressSnapshot {
     totalFlashcards: totalCards,
     totalCourses: courses.length,
     totalNotesCourses: notesCodes.length,
+    totalQuizzes: allQuizAttempts.length,
+    averageQuizScore,
     lastActive,
     recentActivity: activity.slice(0, 12),
   };
@@ -150,10 +176,6 @@ export default function ProgressPage() {
   useEffect(() => {
     if (!hydrated) return;
 
-    // Recompute whenever this page mounts, whenever any study data changes
-    // elsewhere in the app (new chat, new flashcard set, saved note), and
-    // whenever the tab regains focus — otherwise these stats freeze at
-    // whatever they were the moment you first opened this page.
     const refresh = () => setSnapshot(buildProgressSnapshot());
     refresh();
 
@@ -193,17 +215,18 @@ export default function ProgressPage() {
     conversation: "💬",
     flashcard: "🗂️",
     note: "📝",
+    quiz: "🎯",
   };
   const typeLabel: Record<ActivityItem["type"], string> = {
     conversation: "AI chat",
     flashcard: "Flashcards",
     note: "Notes",
+    quiz: "Quiz",
   };
 
   return (
     <main className="min-h-screen bg-[var(--app-bg)] text-[var(--app-text)]">
       <div className="max-w-5xl mx-auto px-6 py-10 space-y-10">
-        {/* header */}
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Study Progress</h1>
           <p className="text-sm text-[var(--app-muted)] mt-1">
@@ -211,15 +234,19 @@ export default function ProgressPage() {
           </p>
         </div>
 
-        {/* stat cards */}
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
           <StatCard icon="💬" label="AI Conversations" value={stats.totalConversations} sub={`${stats.totalMessages} total messages`} />
           <StatCard icon="🗂️" label="Flashcard Sets" value={stats.totalFlashcardSets} sub={`${stats.totalFlashcards} cards total`} />
+          <StatCard
+            icon="🎯"
+            label="Quizzes Taken"
+            value={stats.totalQuizzes}
+            sub={stats.averageQuizScore !== null ? `${stats.averageQuizScore}% avg score` : "no attempts yet"}
+          />
           <StatCard icon="📝" label="Notes Courses" value={stats.totalNotesCourses} sub="courses with saved notes" />
           <StatCard icon="📚" label="Enrolled Courses" value={stats.totalCourses} sub="from the catalog" />
         </div>
 
-        {/* last active */}
         {stats.lastActive && (
           <div className="flex items-center gap-2 text-sm text-[var(--app-muted)]">
             <span className="h-2 w-2 rounded-full bg-green-400" />
@@ -227,7 +254,6 @@ export default function ProgressPage() {
           </div>
         )}
 
-        {/* heatmap */}
         <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface)] p-5">
           <p className="text-sm font-semibold mb-4">Study activity — last 28 days</p>
           <div className="flex gap-1.5 flex-wrap">
@@ -240,7 +266,6 @@ export default function ProgressPage() {
           </div>
         </div>
 
-        {/* recent activity */}
         {stats.recentActivity.length > 0 && (
           <div>
             <h2 className="text-sm font-semibold mb-4 uppercase tracking-wide text-[var(--app-muted)]">Recent Activity</h2>
@@ -265,7 +290,7 @@ export default function ProgressPage() {
           </div>
         )}
 
-        {stats.totalConversations === 0 && stats.totalFlashcardSets === 0 && (
+        {stats.totalConversations === 0 && stats.totalFlashcardSets === 0 && stats.totalQuizzes === 0 && (
           <div className="rounded-2xl border border-dashed border-[var(--app-border)] py-16 text-center">
             <div className="text-4xl mb-3">🚀</div>
             <p className="font-semibold text-[var(--app-text)]">Nothing to track yet</p>
