@@ -65,7 +65,7 @@ function detectRoute(message: string, action: string): keyof typeof ROUTERS {
   ];
   if (reasoningKeywords.some((kw) => lower.includes(kw))) return "reasoning";
 
-  if (["quiz", "flashcards", "studyguide", "summary"].includes(action)) return "reasoning";
+  if (["quiz", "flashcards", "studyguide", "summary", "explain_answer"].includes(action)) return "reasoning";
   if (message.length > 300) return "reasoning";
 
   return "fast";
@@ -166,6 +166,20 @@ Structure your response as:
 2. Important Definitions, Formulas, or Facts (short bullet list)
 3. A short plain-English summary paragraph
 Only use information actually present in the notes. Do not invent details.`;
+
+  if (action === "explain_answer")
+    return `${base}
+
+The student just answered a practice quiz question incorrectly. Explain clearly why the correct answer is right, in a warm, conversational, SPOKEN-style tone — like a tutor talking out loud, not a written document.
+
+Rules:
+- 2-4 short sentences, plain conversational prose only.
+- No markdown, no bullet points, no headers, no asterisks, no numbered lists — this will be read aloud by text-to-speech, so it must sound natural spoken aloud.
+- Reference the specific question and the correct answer directly. Briefly note why their answer was wrong if it's a common misconception, without being harsh about it.
+- Keep it encouraging.
+
+After the explanation, on its own new line, output exactly this format (used to build a real search link, not shown to the student as text):
+YOUTUBE_SEARCH: <a short, specific YouTube search query, 5-8 words, that would surface a good video explaining this exact concept>`;
 
   return base;
 }
