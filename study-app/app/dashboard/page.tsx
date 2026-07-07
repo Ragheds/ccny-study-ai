@@ -65,6 +65,39 @@ function updateDashboardUrl(tab: TabId, courseCode?: string | null): void {
   const query = params.toString();
   window.history.replaceState(null, "", `${window.location.pathname}${query ? `?${query}` : ""}`);
 }
+type QuizQuestion = {
+  question: string;
+  options: Record<string, string>;
+  answer: string;
+};
+
+function parseQuiz(raw: string): QuizQuestion[] {
+  const questions: QuizQuestion[] = [];
+  const blocks = raw.split(/\n(?=\d+[.)])/g).filter((block) => block.trim());
+
+  for (const block of blocks) {
+    const lines = block.trim().split("\n").filter((line) => line.trim());
+    if (!lines.length) continue;
+
+    const questionText = lines[0].replace(/^\d+[.)]\s*/, "").trim();
+    const options: Record<string, string> = {};
+    let answer = "";
+
+    for (const line of lines.slice(1)) {
+      const optionMatch = line.match(/^([A-D])[.)]\s+(.+)/);
+      if (optionMatch) options[optionMatch[1]] = optionMatch[2].trim();
+
+      const answerMatch = line.match(/^(?:Answer|Correct(?:\s+Answer)?):\s*([A-D])/i);
+      if (answerMatch) answer = answerMatch[1].toUpperCase();
+    }
+
+    if (questionText && Object.keys(options).length >= 2 && answer) {
+      questions.push({ question: questionText, options, answer });
+    }
+  }
+
+  return questions;
+}
 /* ── shared review screen — used both for a freshly-submitted quiz AND for
    reopening a past saved attempt, so "Learn this" behaves identically either way */
 function QuizReviewScreen({
