@@ -3,7 +3,7 @@
 import { Suspense, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { schools } from "../../data/ccny";
+import { schools } from "@/data/ccny";
 
 const SCHOOL_COLORS = [
   "#f59e0b",

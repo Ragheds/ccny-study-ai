@@ -2,51 +2,44 @@
 
 :root {
   color-scheme: light;
-  --background: #f5f7fb;
-  --foreground: #111827;
-  --app-bg: #f5f7fb;
+  --background: #faf9f5;
+  --foreground: #141413;
+  --app-bg: #faf9f5;
   --app-surface: #ffffff;
-  --app-surface-muted: #eef2f7;
-  --app-surface-strong: #e2e8f0;
-  --app-border: rgba(15, 23, 42, 0.12);
-  --app-border-strong: rgba(15, 23, 42, 0.22);
-  --app-text: #111827;
-  --app-muted: #64748b;
-  --app-muted-strong: #334155;
-  --app-nav: rgba(255, 255, 255, 0.9);
-  --app-accent: #2563eb;
-  --app-accent-soft: #dbeafe;
-}
-
-:root[data-theme="inline"] {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: Arial, Helvetica, sans-serif;
-  --font-mono: "Courier New", Courier, monospace;
+  --app-surface-muted: #f3f1ea;
+  --app-surface-strong: #eae7dd;
+  --app-border: rgba(20, 20, 19, 0.10);
+  --app-border-strong: rgba(20, 20, 19, 0.18);
+  --app-text: #141413;
+  --app-muted: #83807a;
+  --app-muted-strong: #57544e;
+  --app-nav: rgba(250, 249, 245, 0.92);
+  --app-accent: #c2542d;
+  --app-accent-soft: #f5e4da;
 }
 
 .dark {
   color-scheme: dark;
-  --background: #000000;
-  --foreground: #ffffff;
-  --app-bg: #000000;
-  --app-surface: #0a0a0a;
-  --app-surface-muted: rgba(255, 255, 255, 0.05);
-  --app-surface-strong: rgba(255, 255, 255, 0.1);
-  --app-border: rgba(255, 255, 255, 0.1);
-  --app-border-strong: rgba(255, 255, 255, 0.22);
-  --app-text: #ffffff;
-  --app-muted: #6b7280;
-  --app-muted-strong: #d1d5db;
-  --app-nav: rgba(0, 0, 0, 0.92);
-  --app-accent: #60a5fa;
-  --app-accent-soft: rgba(96, 165, 250, 0.15);
+  --background: #1a1918;
+  --foreground: #f5f2ea;
+  --app-bg: #1a1918;
+  --app-surface: #232220;
+  --app-surface-muted: #2a2926;
+  --app-surface-strong: #35332f;
+  --app-border: rgba(245, 242, 234, 0.10);
+  --app-border-strong: rgba(245, 242, 234, 0.18);
+  --app-text: #f5f2ea;
+  --app-muted: #96938c;
+  --app-muted-strong: #c2bfb6;
+  --app-nav: rgba(26, 25, 24, 0.92);
+  --app-accent: #e08659;
+  --app-accent-soft: rgba(224, 134, 89, 0.15);
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
 }
 
 * {
@@ -878,6 +871,16 @@ body:has(.auth-page) {
     box-shadow: 0 0 96px rgba(111, 44, 255, 0.42);
   }
 }
+@keyframes generating-spin {
+  0%   { transform: scale(1) rotate(0deg); opacity: 1; }
+  50%  { transform: scale(1.18) rotate(180deg); opacity: 0.7; }
+  100% { transform: scale(1) rotate(360deg); opacity: 1; }
+}
+
+.generating-icon {
+  display: inline-flex;
+  animation: generating-spin 1s ease-in-out infinite;
+}
 
 @keyframes dashboard-tab-fade {
   from {
@@ -983,7 +986,7 @@ body:has(.auth-page) {
   }
 }
 
-/* ── AITutor animations (added) ─────────────────────────────────── */
+/* â”€â”€ AITutor animations (added) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 
 /* Orbiting study emojis */
 @keyframes emoji-orbit {
@@ -1011,6 +1014,11 @@ body:has(.auth-page) {
 }
 
 /* AI avatar card swipes in from the left when a response arrives */
+/* User message bubble slides in from the right when sent */
+@keyframes user-msg-in {
+  from { transform: translateX(18px); opacity: 0; }
+  to   { transform: translateX(0);    opacity: 1; }
+}
 @keyframes avatar-swipe-in {
   from { transform: translateX(-18px); opacity: 0; }
   to   { transform: translateX(0);     opacity: 1; }

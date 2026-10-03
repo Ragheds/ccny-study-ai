@@ -166,6 +166,19 @@ export default function AccountPage() {
   const toastExitRef = useRef<number | null>(null);
   const pillTimerRef = useRef<number | null>(null);
 
+  // Let Escape close the delete-account modal, same as clicking the backdrop
+  // (disabled mid-deletion so an in-flight request can't be abandoned silently).
+  useEffect(() => {
+    if (showDeleteStage === 0 || deleting) return;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setShowDeleteStage(0);
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [showDeleteStage, deleting]);
+
   const beginEdit = () => {
     if (!account) return;
     setDraftName(account.name);
@@ -750,7 +763,13 @@ export default function AccountPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div className="absolute inset-0 bg-black/55 backdrop-blur-md modal-overlay" onClick={() => { if (!deleting) setShowDeleteStage(0); }} />
 
-          <div className="relative z-10 mx-4 w-full max-w-[480px] rounded-2xl bg-[var(--app-surface)] p-6 text-center shadow-2xl modal-card">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="delete-account-heading"
+            className="relative z-10 mx-4 w-full max-w-[480px] rounded-2xl bg-[var(--app-surface)] p-6 text-center shadow-2xl modal-card"
+          >
+
             {/* Stage 1: Compact centered confirmation */}
             {showDeleteStage === 1 && (
               <div className="space-y-4">
@@ -758,7 +777,7 @@ export default function AccountPage() {
                   <div className="warning-icon" aria-hidden />
                 </div>
 
-                <h2 className="text-2xl font-semibold">Delete Account</h2>
+                <h2 id="delete-account-heading" className="text-2xl font-semibold">Delete Account</h2>
                 <p className="text-sm font-medium text-[var(--app-muted-strong)]">Deleting your account will permanently remove:</p>
 
                 <ul className="mt-2 space-y-2 text-left">
@@ -805,7 +824,7 @@ export default function AccountPage() {
                   <div className="warning-icon small" aria-hidden />
                 </div>
 
-                <h2 className="text-2xl font-semibold">Final confirmation</h2>
+                <h2 id="delete-account-heading" className="text-2xl font-semibold">Final confirmation</h2>
                 <p className="text-sm font-medium text-[var(--app-muted-strong)]">This action cannot be reversed. Once deleted, your workspace and study history are gone forever.</p>
 
                 {deletionError && <p className="mt-2 text-sm text-red-500">{deletionError}</p>}
@@ -854,7 +873,7 @@ export default function AccountPage() {
                   </div>
                 </div>
 
-                <h2 className="text-2xl font-semibold">Goodbye.</h2>
+                <h2 id="delete-account-heading" className="text-2xl font-semibold">Goodbye.</h2>
                 <p className="mx-auto max-w-xs text-sm text-[var(--app-muted-strong)]">Thank you for being part of CCNY Study AI. We hope we helped you learn something new. You’re always welcome back.</p>
               </div>
             )}

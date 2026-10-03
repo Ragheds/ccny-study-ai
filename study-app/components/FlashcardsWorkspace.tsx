@@ -1,6 +1,7 @@
 "use client";
 
 import { ChangeEvent, Dispatch, SetStateAction, useState } from "react";
+import { StarburstLogo } from "@/components/StarburstLogo";
 import { useStoredValue } from "@/hooks/useStoredValue";
 import { SavedCourse, SavedMajor } from "@/lib/chatWorkspace";
 import {
@@ -21,7 +22,6 @@ import {
   selectFlashcardSet,
 } from "@/lib/flashcards";
 import { KEYS } from "@/lib/storage";
-import { StarburstLogo } from "@/components/StarburstLogo";
 
 /* ── types ─────────────────────────────────────────────────────────── */
 type FlashcardsWorkspaceProps = {
@@ -182,23 +182,53 @@ function FlashcardStudyView({ set, onBack, onDelete }: { set: FlashcardSet; onBa
       </div>
 
       {/* Card */}
-      <div className="flex-1 flex items-center justify-center px-4">
-        <button
-          type="button"
-          onClick={() => setFlipped((v) => !v)}
-          className="w-full max-w-xl rounded-3xl border border-[var(--app-border)] p-8 min-h-[220px] flex flex-col items-center justify-center gap-4 text-center transition-all cursor-pointer select-none"
-          style={{
-            background: flipped ? "var(--app-text)" : "var(--app-surface)",
-            color: flipped ? "var(--app-bg)" : "var(--app-text)",
-            boxShadow: flipped ? "0 8px 32px rgba(0,0,0,.16)" : "0 2px 12px rgba(0,0,0,.06)",
-            transform: "translateZ(0)",
-          }}
-        >
-          <span className="text-[10px] font-semibold uppercase tracking-widest opacity-50">{flipped ? "Back" : "Front"}</span>
-          <p className="text-lg font-medium leading-relaxed">{flipped ? card?.back : card?.front}</p>
-          <span className="text-[11px] opacity-40">{flipped ? "Click to see question" : "Click to reveal answer"}</span>
-        </button>
+<div className="flex-1 flex items-center justify-center px-4">
+  <div
+    onClick={() => setFlipped((v) => !v)}
+    className="w-full max-w-xl min-h-[220px] cursor-pointer select-none"
+    style={{ perspective: "1200px" }}
+  >
+    <div
+      className="relative w-full h-full min-h-[220px]"
+      style={{
+        transformStyle: "preserve-3d",
+        transition: "transform 0.5s cubic-bezier(0.4, 0, 0.2, 1)",
+        transform: flipped ? "rotateY(180deg)" : "rotateY(0deg)",
+      }}
+    >
+      {/* Front */}
+      <div
+        className="absolute inset-0 rounded-3xl border border-[var(--app-border)] p-8 flex flex-col items-center justify-center gap-4 text-center"
+        style={{
+          backfaceVisibility: "hidden",
+          background: "var(--app-surface)",
+          color: "var(--app-text)",
+          boxShadow: "0 2px 12px rgba(0,0,0,.06)",
+        }}
+      >
+        <span className="text-[10px] font-semibold uppercase tracking-widest opacity-50">Front</span>
+        <p className="text-lg font-medium leading-relaxed">{card?.front}</p>
+        <span className="text-[11px] opacity-40">Click to reveal answer</span>
       </div>
+
+      {/* Back */}
+      <div
+        className="absolute inset-0 rounded-3xl border border-[var(--app-border)] p-8 flex flex-col items-center justify-center gap-4 text-center"
+        style={{
+          backfaceVisibility: "hidden",
+          transform: "rotateY(180deg)",
+          background: "var(--app-text)",
+          color: "var(--app-bg)",
+          boxShadow: "0 8px 32px rgba(0,0,0,.16)",
+        }}
+      >
+        <span className="text-[10px] font-semibold uppercase tracking-widest opacity-50">Back</span>
+        <p className="text-lg font-medium leading-relaxed">{card?.back}</p>
+        <span className="text-[11px] opacity-40">Click to see question</span>
+      </div>
+    </div>
+  </div>
+</div>
 
       {/* Nav */}
       <div className="flex items-center justify-center gap-6 py-6">
@@ -481,7 +511,14 @@ export function FlashcardsWorkspace({ major, courses, activeCourseCode, onActive
           className="w-full rounded-2xl py-3.5 text-sm font-semibold transition disabled:opacity-50"
           style={{ background: "linear-gradient(135deg,#FF6B35,#F7931E)", color: "#fff", boxShadow: "0 4px 14px rgba(255,107,53,.32)" }}
         >
-          {loading ? (progress || "Generating…") : `Generate ${FLASHCARD_TARGET_COUNT} Flashcards`}
+          {loading ? (
+  <span className="flex items-center justify-center gap-2">
+    <span className="generating-icon"><StarburstLogo size={16} white /></span>
+    {progress || "Generating…"}
+  </span>
+) : (
+  `Generate ${FLASHCARD_TARGET_COUNT} Flashcards`
+)}
         </button>
       </div>
 

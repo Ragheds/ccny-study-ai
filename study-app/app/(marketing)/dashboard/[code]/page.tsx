@@ -3,8 +3,8 @@
 import { useState, useMemo } from "react";
 import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { schools } from "../../../data/ccny";
-import catalog from "../../../data/catalog.json";
+import { schools } from "@/data/ccny";
+import catalog from "@/data/catalog.json";
 import { saveToStorage, loadFromStorage, KEYS } from "@/lib/storage";
 import { useHydrated } from "@/hooks/useStoredValue";
 
