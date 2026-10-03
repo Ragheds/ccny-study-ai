@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { KEYS, readStorageRaw, STORAGE_CHANGE_EVENT } from "@/lib/storage";
 import { useHydrated } from "@/hooks/useStoredValue";
+import { WorkspaceSkeleton } from "@/components/WorkspaceSkeleton";
 import { ChatWorkspace, EMPTY_CHAT_WORKSPACE } from "@/lib/chatWorkspace";
 import { EMPTY_FLASHCARD_STORE, FlashcardStore } from "@/lib/flashcards";
 import { EMPTY_QUIZ_STORE, QuizStore } from "@/lib/quizzes";
@@ -234,13 +235,7 @@ export default function ProgressPage() {
   }, [hydrated]);
 
   if (!hydrated || !snapshot) {
-    return (
-      <main className="min-h-screen bg-[var(--app-bg)]">
-        <div className="max-w-5xl mx-auto px-6 py-10">
-          <div className="py-20 text-center text-[var(--app-muted)]">Loading…</div>
-        </div>
-      </main>
-    );
+    return <WorkspaceSkeleton />;
   }
 
   const { stats, heatmap, now } = snapshot;
