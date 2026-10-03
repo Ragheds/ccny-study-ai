@@ -5,7 +5,8 @@
 - `components/AITutor.tsx`, `components/FlashcardsWorkspace.tsx`: interactive tutor and flashcard UI.
 - `lib/storage.ts` and `hooks/useStoredValue.ts`: account-scoped browser storage; Phase 1 will make Supabase the source of truth.
 - `lib/supabase/`: browser, cookie-aware server, and server-only admin clients.
-- `app/api/tutor/route.ts`: authenticates, reserves a database quota, streams OpenRouter text, and finalizes usage metrics.
+- `app/api/tutor/route.ts`: authenticates, reserves a database quota, tries free models in order, streams OpenRouter text, and finalizes one usage row.
+- `lib/tutorLimits.ts`: temporary server-enforced free-model quotas.
 - `supabase/migrations/`: additive database migrations. The Phase 0 migration adds AI usage and an atomic quota reservation function.
 - `data/`: CCNY major and course catalog.
 

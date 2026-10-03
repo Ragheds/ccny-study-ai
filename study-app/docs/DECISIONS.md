@@ -5,3 +5,4 @@
 - Phase 0: Make one OpenRouter attempt per tutor request while usage accounting is introduced; model selection and paid-model pricing belong to Phase 3.
 - Phase 0: Use the existing beaver artwork for the 192 and 512 pixel manifest icons to avoid adding a new brand direction.
 - Phase 0: Build with webpack because this macOS checkout has only the Next SWC WASM fallback, which Turbopack cannot use.
+- Tutor fix: Count a failed student request against the rolling-minute retry limit, but release its daily request and token reservation; fallback attempts share one usage row.
