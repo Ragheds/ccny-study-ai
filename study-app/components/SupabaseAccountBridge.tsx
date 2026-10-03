@@ -9,12 +9,11 @@ import {
 import { loadRemoteAppState, saveRemoteAppState } from "@/lib/supabase/appState";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import {
-  hasAccountScopedStorageData,
   isAccountScopedStorageKey,
   KEYS,
   loadFromStorage,
   migrateLegacyStorageToAccount,
-  replaceAccountScopedStorageFromSnapshot,
+  mergeAccountScopedStorageFromSnapshot,
   STORAGE_CHANGE_EVENT,
 } from "@/lib/storage";
 import { useStoredValue } from "@/hooks/useStoredValue";
@@ -55,6 +54,7 @@ export function SupabaseAccountBridge() {
   const [, setAccount] = useStoredValue<AccountProfile | null>(KEYS.ACCOUNT, null);
   const activeAccountIdRef = useRef<string | null>(null);
   const hydrateInProgressRef = useRef(false);
+  const hydratingAccountIdRef = useRef<string | null>(null);
   const saveTimerRef = useRef<number | null>(null);
 
   const clearSaveTimer = useCallback(() => {
@@ -78,26 +78,27 @@ export function SupabaseAccountBridge() {
 
   const hydrateRemoteState = useCallback(
     async (accountId: string) => {
-      const remoteState = await loadRemoteAppState(accountId);
+      if (hydratingAccountIdRef.current === accountId) return;
+      hydratingAccountIdRef.current = accountId;
+      hydrateInProgressRef.current = true;
+      let needsUpload = false;
+      try {
+        const remoteState = await loadRemoteAppState(accountId);
+        if (activeAccountIdRef.current !== accountId) return;
 
-      if (remoteState.status === "found") {
-        hydrateInProgressRef.current = true;
-        replaceAccountScopedStorageFromSnapshot(remoteState.data);
+        if (remoteState.status === "found") {
+          needsUpload = mergeAccountScopedStorageFromSnapshot(remoteState.data, remoteState.updatedAt);
+          // Restore a custom name/photo from the saved profile override.
+          setAccount((current) => (current ? applyProfileOverride(current) : current));
+        } else if (remoteState.status === "missing") {
+          await saveRemoteAppState(accountId);
+        }
+        // A read error is not proof that the remote record is empty. Keep the
+        // local cache and retry on the next auth event or navigation.
+      } finally {
         hydrateInProgressRef.current = false;
-        // The snapshot we just restored may include a customized name/photo
-        // for this account (KEYS.PROFILE) -- e.g. this is a fresh device
-        // that never had it locally. Re-apply it now that it's in storage.
-        setAccount((current) => (current ? applyProfileOverride(current) : current));
-        return;
-      }
-
-      if (remoteState.status === "missing") {
-        await saveRemoteAppState(accountId);
-        return;
-      }
-
-      if (hasAccountScopedStorageData()) {
-        scheduleRemoteSave(accountId);
+        if (hydratingAccountIdRef.current === accountId) hydratingAccountIdRef.current = null;
+        if (needsUpload && activeAccountIdRef.current === accountId) scheduleRemoteSave(accountId);
       }
     },
     [scheduleRemoteSave, setAccount]

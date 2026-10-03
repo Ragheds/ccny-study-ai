@@ -7,6 +7,7 @@ import { useSearchParams } from "next/navigation";
 import { AITutor } from "@/components/AITutor";
 import { FlashcardsWorkspace } from "@/components/FlashcardsWorkspace";
 import { LearnThisModal } from "@/components/LearnThisModal";
+import { WorkspaceSkeleton } from "@/components/WorkspaceSkeleton";
 import { useHydrated, useStoredValue } from "@/hooks/useStoredValue";
 import { SavedCourse, SavedMajor } from "@/lib/chatWorkspace";
 import { KEYS } from "@/lib/storage";
@@ -598,7 +599,7 @@ function QuizzesTab({ major, courses }: { major: SavedMajor; courses: SavedCours
   );
 }
 export default function DashboardPage() {
-  return <Suspense fallback={<div className="p-6 text-[var(--app-muted)]">Loading dashboard…</div>}><DashboardContent /></Suspense>;
+  return <Suspense fallback={<WorkspaceSkeleton />}><DashboardContent /></Suspense>;
 }
 
 function DashboardContent() {
@@ -630,7 +631,7 @@ function DashboardContent() {
   updateDashboardUrl(activeTab === "flashcards" ? "flashcards" : "ai", courseCode);
   };
 
-  if (!hydrated) return <main className="min-h-screen bg-[var(--app-bg)]" />;
+  if (!hydrated) return <WorkspaceSkeleton />;
 
   if (!major) {
     return (

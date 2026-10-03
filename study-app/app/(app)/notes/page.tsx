@@ -7,6 +7,7 @@ import { useStoredValue, useHydrated } from "@/hooks/useStoredValue";
 import { SavedCourse, SavedMajor } from "@/lib/chatWorkspace";
 import { KEYS, readStorageRaw } from "@/lib/storage";
 import { StarburstLogo } from "@/components/StarburstLogo";
+import { WorkspaceSkeleton } from "@/components/WorkspaceSkeleton";
 
 /* ── types ─────────────────────────────────────────────────────── */
 type CourseNote = { text: string; summary: string; updatedAt: number };
@@ -181,17 +182,7 @@ export default function NotesPage() {
   };
 
   if (!hydrated) {
-    return (
-      <main className="min-h-screen bg-[var(--app-bg)] text-[var(--app-text)]">
-        <div className="mx-auto flex min-h-[420px] max-w-5xl items-center justify-center px-6 py-10">
-          <div className="w-full max-w-xl rounded-3xl border border-[var(--app-border)] bg-[var(--app-surface)] p-8 text-center shadow-sm">
-            <div className="mx-auto mb-4 h-8 w-8 rounded-full border-2 border-orange-400 border-t-transparent" style={{ animation: "spin 0.8s linear infinite" }} />
-            <h2 className="text-lg font-semibold">Loading your notes workspace…</h2>
-            <p className="mt-2 text-sm text-[var(--app-muted)]">Your saved courses and notes are being restored.</p>
-          </div>
-        </div>
-      </main>
-    );
+    return <WorkspaceSkeleton />;
   }
 
   if (!major) {

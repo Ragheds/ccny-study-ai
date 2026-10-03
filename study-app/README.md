@@ -18,6 +18,6 @@ npm run build
 
 ## Current storage and limits
 
-Supabase provides authentication. Major, saved courses, chats, notes, flashcards, and quiz history are still cached in account-scoped browser storage. Cross-device sync and offline packs are planned, not available yet. The tutor requires a signed-in user and uses temporary server-side limits of 5 requests per minute, 60 requests and 80,000 reserved tokens per UTC day. Apply the follow-up SQL migration in `docs/tutor-limit-fix-notes.md`. Free models remain in use until the paid-model evaluation phase.
+Supabase provides authentication and, after the Phase 1 migration, stores major, courses, notes, flashcards, quiz results, and the compatibility state for chats and preferences. Browser storage is a fast account-scoped cache. Offline packs are planned, not available yet. The tutor requires a signed-in user and uses temporary server-side limits of 5 requests per minute, 60 requests and 80,000 reserved tokens per UTC day. Apply the SQL migrations in order using `docs/tutor-limit-fix-notes.md` and `docs/phase-1-notes.md`. Free models remain in use until the paid-model evaluation phase.
 
 See [FEATURES.md](FEATURES.md) and [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the current feature map.

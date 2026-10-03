@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useMemo, useSyncExternalStore } from "react";
+import { useAppDataContext } from "@/components/AppDataProvider";
 import {
   getEffectiveStorageKey,
   isAccountScopedStorageKey,
@@ -8,6 +9,7 @@ import {
   readStorageRaw,
   saveToStorage,
   STORAGE_CHANGE_EVENT,
+  type AccountScopedStorageSnapshot,
 } from "@/lib/storage";
 
 type StoredValueSetter<T> = (next: T | ((current: T) => T)) => void;
@@ -57,18 +59,25 @@ function subscribeToStorageKey(key: string, onStoreChange: () => void): () => vo
 }
 
 export function useHydrated(): boolean {
-  return useSyncExternalStore(
+  const context = useAppDataContext();
+  const clientHydrated = useSyncExternalStore(
     () => () => {},
     () => true,
     () => false
   );
+  return Boolean(context?.initial?.hasStudyData) || clientHydrated;
 }
 
 export function useStoredValue<T>(key: string, fallback: T): [T, StoredValueSetter<T>] {
+  const context = useAppDataContext();
+  const initialValue = key === KEYS.ACCOUNT
+    ? context?.initial?.account
+    : context?.initial?.data[key as keyof AccountScopedStorageSnapshot];
+  const initialRaw = initialValue === undefined ? null : JSON.stringify(initialValue);
   const raw = useSyncExternalStore(
     useCallback((onStoreChange) => subscribeToStorageKey(key, onStoreChange), [key]),
-    useCallback(() => readStorageRaw(key), [key]),
-    () => null
+    useCallback(() => context && !context.ready ? initialRaw : readStorageRaw(key), [context, initialRaw, key]),
+    useCallback(() => initialRaw, [initialRaw])
   );
 
   const value = useMemo(() => parseStoredValue(raw, fallback), [raw, fallback]);

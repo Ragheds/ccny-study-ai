@@ -6,6 +6,7 @@ import { ChangeEvent, FormEvent, useState, useEffect, useRef } from "react";
 import { ProfileAvatar } from "@/components/ProfileAvatar";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { useHydrated, useStoredValue } from "@/hooks/useStoredValue";
+import { WorkspaceSkeleton } from "@/components/WorkspaceSkeleton";
 import {
   AccountProfile,
   formatAccountDate,
@@ -411,7 +412,7 @@ export default function AccountPage() {
     }
   }
 
-  if (!hydrated) return <main className="min-h-screen bg-[var(--app-bg)]" />;
+  if (!hydrated) return <WorkspaceSkeleton />;
 
   if (!account) {
     return (
