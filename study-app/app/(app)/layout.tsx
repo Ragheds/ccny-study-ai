@@ -1,4 +1,6 @@
 import { AppSidebar } from "@/components/AppSidebar";
+import { AppDataProvider } from "@/components/AppDataProvider";
+import { loadServerStudyState } from "@/lib/supabase/serverStudyState";
 
 // Every page inside this shell keeps a fixed viewport — nothing here scrolls
 // except what a page explicitly opts into. The old approach guessed a pixel
@@ -9,15 +11,18 @@ import { AppSidebar } from "@/components/AppSidebar";
 // instead of growing to match its content and pushing the page itself into
 // a scroll. A page that needs internal scrolling (like AI Tutor's message
 // list) adds its own overflow-y-auto on an inner wrapper — never on <main>.
-export default function AppLayout({
+export default async function AppLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const initial = await loadServerStudyState();
   return (
-    <div className="flex h-dvh overflow-hidden" style={{ background: "var(--app-bg)" }}>
-      <AppSidebar />
-      <main className="min-h-0 min-w-0 flex-1 overflow-hidden">{children}</main>
-    </div>
+    <AppDataProvider initial={initial}>
+      <div className="flex h-dvh overflow-hidden" style={{ background: "var(--app-bg)" }}>
+        <AppSidebar />
+        <main className="min-h-0 min-w-0 flex-1 overflow-hidden">{children}</main>
+      </div>
+    </AppDataProvider>
   );
 }

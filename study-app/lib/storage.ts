@@ -19,6 +19,7 @@ export const KEYS = {
 export const STORAGE_CHANGE_EVENT = "ccny-storage-change";
 const ACCOUNT_SCOPE_PREFIX = "ccny_account_scope_v1";
 const LEGACY_STORAGE_OWNER_KEY = "ccny_legacy_storage_owner_v1";
+const UPDATED_AT_SUFFIX = ":updated_at";
 
 export const ACCOUNT_SCOPED_STORAGE_KEYS = [
   KEYS.PROFILE,
@@ -190,11 +191,48 @@ export function replaceAccountScopedStorageFromSnapshot(
   }
 }
 
+// A server snapshot wins over old local data. Local edits made after that
+// snapshot stay in place and are uploaded by the account bridge instead.
+export function mergeAccountScopedStorageFromSnapshot(
+  snapshot: AccountScopedStorageSnapshot,
+  remoteUpdatedAt: number
+): boolean {
+  if (!canUseStorage()) return false;
+  let hasNewerLocalData = false;
+  for (const key of ACCOUNT_SCOPED_STORAGE_KEYS) {
+    const storageKey = getEffectiveStorageKey(key);
+    const localUpdatedAt = Number(localStorage.getItem(`${storageKey}${UPDATED_AT_SUFFIX}`) ?? 0);
+    const localRaw = localStorage.getItem(storageKey);
+    const remoteValue = snapshot[key];
+    // Legacy browser data predates per-key timestamps. If the remote record
+    // has no value for a key yet, preserve that data for the one-time import.
+    if (localRaw !== null && localUpdatedAt === 0 &&
+        (remoteValue === undefined || remoteValue === null ||
+          (typeof remoteValue === "object" && Object.keys(remoteValue).length === 0))) {
+      hasNewerLocalData = true;
+      continue;
+    }
+    if (localUpdatedAt > remoteUpdatedAt) {
+      hasNewerLocalData = true;
+      continue;
+    }
+    if (Object.prototype.hasOwnProperty.call(snapshot, key)) {
+      localStorage.setItem(storageKey, JSON.stringify(snapshot[key]));
+    } else {
+      localStorage.removeItem(storageKey);
+    }
+    localStorage.setItem(`${storageKey}${UPDATED_AT_SUFFIX}`, String(remoteUpdatedAt));
+    notifyStorageChange(key, storageKey);
+  }
+  return hasNewerLocalData;
+}
+
 export function saveToStorage<T>(key: string, value: T): void {
   try {
     if (!canUseStorage()) return;
     const storageKey = getEffectiveStorageKey(key);
     localStorage.setItem(storageKey, JSON.stringify(value));
+    if (isAccountScopedStorageKey(key)) localStorage.setItem(`${storageKey}${UPDATED_AT_SUFFIX}`, String(Date.now()));
     notifyStorageChange(key, storageKey);
   } catch (e) {
     console.error("Storage save error:", e);
@@ -217,6 +255,7 @@ export function removeFromStorage(key: string): void {
     if (!canUseStorage()) return;
     const storageKey = getEffectiveStorageKey(key);
     localStorage.removeItem(storageKey);
+    if (isAccountScopedStorageKey(key)) localStorage.setItem(`${storageKey}${UPDATED_AT_SUFFIX}`, String(Date.now()));
     notifyStorageChange(key, storageKey);
   } catch (e) {
     console.error("Storage remove error:", e);
