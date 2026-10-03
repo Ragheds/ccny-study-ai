@@ -46,7 +46,7 @@ export function AppSidebar() {
   const [analyticsOpen, setAnalyticsOpen] = useState(true);
 
   if (!hydrated) {
-    return <div className="w-[220px] shrink-0 border-r border-[var(--app-border)]" style={{ background: "var(--app-surface)" }} />;
+    return <div className="hidden w-[220px] shrink-0 border-r border-[var(--app-border)] md:block" style={{ background: "var(--app-surface)" }} />;
   }
 
   // Real, computed data only — nothing here is invented. Empty states show
@@ -64,7 +64,7 @@ export function AppSidebar() {
   const totalFlashcardSets = Object.values(flashcardStore.setsById ?? {}).length;
 
   return (
-    <aside className="flex h-full w-[220px] shrink-0 flex-col border-r border-[var(--app-border)] px-2 py-3" style={{ background: "var(--app-surface)" }}>
+    <aside className="hidden h-full w-[220px] shrink-0 flex-col border-r border-[var(--app-border)] px-2 py-3 md:flex" style={{ background: "var(--app-surface)" }}>
       <div className="flex items-center gap-2 px-2 pb-3">
         <div className="flex h-5 w-5 items-center justify-center rounded-md" style={{ background: "var(--app-accent)" }}>
           <StarburstLogo size={12} white />
