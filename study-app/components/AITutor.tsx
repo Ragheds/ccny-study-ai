@@ -22,6 +22,7 @@ import {
   touchConversation,
 } from "@/lib/chatWorkspace";
 import { KEYS } from "@/lib/storage";
+import type { StudyMode } from "@/lib/studyMode";
 import { StarburstLogo } from "@/components/StarburstLogo";
 import { MemoAIMessage, MemoUserMessage, MemoStreamingAIMessage } from "@/components/TutorMessages";
 
@@ -472,6 +473,7 @@ export function AITutor({ major, courses, activeCourseCode, onActiveCourseChange
   const [workspace, setWorkspace]    = useStoredValue(KEYS.CHAT_WORKSPACE, EMPTY_CHAT_WORKSPACE);
   const [legacyMsgs]                 = useStoredValue(KEYS.CHAT_HISTORY, EMPTY_MESSAGES);
   const [uploadDraft, setUploadDraft] = useStoredValue<{ text: string; fileName: string }>(KEYS.UPLOAD_DRAFT, { text: "", fileName: "" });
+  const [studyMode] = useStoredValue<StudyMode | null>(KEYS.STUDY_MODE, null);
 
   const [selCode, setSelCode]         = useState(() => (courses.find(c => c.code === activeCourseCode) ?? courses[0])?.code ?? "");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -537,6 +539,10 @@ export function AITutor({ major, courses, activeCourseCode, onActiveCourseChange
     endRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [msgs, loading, streamingContent]);
 
+  useEffect(() => () => {
+    if (typeof window !== "undefined") window.speechSynthesis?.cancel();
+  }, []);
+
   const chooseCourse  = (c: SavedCourse) => { setSelCode(c.code); setInput(""); setMobileSidebar(false); onActiveCourseChange?.(c.code); };
   const startNewChat  = () => { if (!sel) return; setWorkspace(cur => addConversation(cur, createConversation(sel, major))); setInput(""); setMobileSidebar(false); };
   const selectConv    = (id: string) => { setWorkspace(cur => touchConversation(cur, id)); setInput(""); setMobileSidebar(false); };
@@ -573,6 +579,7 @@ export function AITutor({ major, courses, activeCourseCode, onActiveCourseChange
         body: JSON.stringify({
           message: uploadDraft.text ? `Based on:\n\n${uploadDraft.text}\n\n${text}` : text,
           action: "general",
+          studyMode,
           context: {
             major: major.name, majorCode: major.code, school: major.school,
             course: sel.name, courseCode: sel.code, courseSection: sel.section,
@@ -600,6 +607,14 @@ export function AITutor({ major, courses, activeCourseCode, onActiveCourseChange
       setStreamingContent(fullText);
 
       const aiMsg = createChatMessage("ai", fullText || "Something went wrong. Please try again.");
+      if (studyMode === "audio" && fullText && "speechSynthesis" in window) {
+        window.speechSynthesis.cancel();
+        const utterance = new SpeechSynthesisUtterance(fullText);
+        utterance.lang = "en-US";
+        utterance.rate = 1;
+        utterance.voice = window.speechSynthesis.getVoices().find((voice) => voice.lang.startsWith("en")) ?? null;
+        window.speechSynthesis.speak(utterance);
+      }
       setNewMsgId(aiMsg.id); setTimeout(() => setNewMsgId(null), 700);
       setWorkspace(cur => appendMessagesToConversation(cur, wc.conversationId, [aiMsg]));
     } catch {

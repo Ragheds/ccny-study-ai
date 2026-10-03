@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { TUTOR_LIMITS } from "@/lib/tutorLimits";
+import { isStudyMode, studyModeInstruction, type StudyMode } from "@/lib/studyMode";
 
 type TutorHistoryMessage = {
   role?: "user" | "ai" | "assistant";
@@ -28,6 +29,7 @@ type TutorRequestBody = {
   course?: string;
   courseCode?: string;
   courseSection?: string;
+  studyMode?: StudyMode;
 };
 
 // ── model routing ────────────────────────────────────────────────────────────
@@ -107,7 +109,8 @@ function buildSystemPrompt(
   school: string,
   course: string,
   courseCode: string,
-  courseSection: string
+  courseSection: string,
+  studyMode: StudyMode | null
 ): string {
   const base = `You are an academic study assistant for CCNY (The City College of New York) students.
 
@@ -184,7 +187,7 @@ Rules:
 After the explanation, on its own new line, output exactly this format (used to build a real search link, not shown to the student as text):
 YOUTUBE_SEARCH: <a short, specific YouTube search query, 5-8 words, that would surface a good video explaining this exact concept>`;
 
-  return base;
+  return studyMode ? `${base}\n\nDefault study mode: ${studyMode}. ${studyModeInstruction(studyMode)} The student may request a different teaching style at any time.` : base;
 }
 
 // ── streaming fetch from OpenRouter ─────────────────────────────────────────
@@ -360,8 +363,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Missing API key" }, { status: 500 });
     }
 
+    const { data: profile } = await supabase.from("profiles")
+      .select("study_mode").eq("user_id", auth.user.id).maybeSingle();
+    const studyMode = isStudyMode(profile?.study_mode)
+      ? profile.study_mode
+      : isStudyMode(body.studyMode) ? body.studyMode : null;
     const systemPrompt = buildSystemPrompt(
-      action, major, majorCode, school, course, courseCode, courseSection
+      action, major, majorCode, school, course, courseCode, courseSection, studyMode
     );
 
     const routeKey = detectRoute(message, action);

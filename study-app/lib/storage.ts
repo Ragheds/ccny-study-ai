@@ -14,6 +14,8 @@ export const KEYS = {
   QUIZ_RESULTS: "ccny_quiz_results",
   FLASHCARDS: "ccny_flashcards",
   PROGRESS: "ccny_progress",
+  STUDY_MODE: "ccny_study_mode",
+  STUDY_MODE_DISMISSED: "ccny_study_mode_dismissed",
 };
 
 export const STORAGE_CHANGE_EVENT = "ccny-storage-change";
@@ -33,6 +35,8 @@ export const ACCOUNT_SCOPED_STORAGE_KEYS = [
   KEYS.QUIZ_RESULTS,
   KEYS.FLASHCARDS,
   KEYS.PROGRESS,
+  KEYS.STUDY_MODE,
+  KEYS.STUDY_MODE_DISMISSED,
 ] as const;
 
 const ACCOUNT_SCOPED_KEYS = new Set<string>(ACCOUNT_SCOPED_STORAGE_KEYS);
@@ -204,15 +208,18 @@ export function mergeAccountScopedStorageFromSnapshot(
     const localUpdatedAt = Number(localStorage.getItem(`${storageKey}${UPDATED_AT_SUFFIX}`) ?? 0);
     const localRaw = localStorage.getItem(storageKey);
     const remoteValue = snapshot[key];
+    // These profile fields are written directly to Supabase; the profile wins
+    // over an older browser's whole-state cache on every sign-in.
+    const profileOwned = key === KEYS.STUDY_MODE || key === KEYS.STUDY_MODE_DISMISSED;
     // Legacy browser data predates per-key timestamps. If the remote record
     // has no value for a key yet, preserve that data for the one-time import.
-    if (localRaw !== null && localUpdatedAt === 0 &&
+    if (!profileOwned && localRaw !== null && localUpdatedAt === 0 &&
         (remoteValue === undefined || remoteValue === null ||
           (typeof remoteValue === "object" && Object.keys(remoteValue).length === 0))) {
       hasNewerLocalData = true;
       continue;
     }
-    if (localUpdatedAt > remoteUpdatedAt) {
+    if (!profileOwned && localUpdatedAt > remoteUpdatedAt) {
       hasNewerLocalData = true;
       continue;
     }
