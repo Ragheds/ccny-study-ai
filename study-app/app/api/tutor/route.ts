@@ -1,10 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-
-const DAILY_TOKEN_CAP = 12000;
-const DAILY_REQUEST_CAP = 15;
-const MINUTE_REQUEST_CAP = 5;
+import { TUTOR_LIMITS } from "@/lib/tutorLimits";
 
 type TutorHistoryMessage = {
   role?: "user" | "ai" | "assistant";
@@ -34,7 +31,7 @@ type TutorRequestBody = {
 };
 
 // ── model routing ────────────────────────────────────────────────────────────
-// Phase 0 uses the first free model per route; each request is one metered call.
+// Each route lists free models in preference order. One student request gets one usage row.
 const ROUTERS = {
   // Code questions: Qwen Coder first (best free coding model)
   code: [
@@ -192,12 +189,13 @@ YOUTUBE_SEARCH: <a short, specific YouTube search query, 5-8 words, that would s
 
 // ── streaming fetch from OpenRouter ─────────────────────────────────────────
 async function tryModelsStreaming(
-  model: string,
+  models: readonly string[],
   requestBody: object,
   apiKey: string,
-  onFinish: (status: "completed" | "failed", inputTokens?: number, outputTokens?: number) => Promise<void>
+  onFinish: (status: "completed" | "failed", model: string, inputTokens?: number, outputTokens?: number) => Promise<void>
 ): Promise<Response | null> {
-  try {
+  for (const model of models) {
+    try {
       const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
         method: "POST",
         headers: {
@@ -211,8 +209,8 @@ async function tryModelsStreaming(
 
       if (!res.ok || !res.body) {
         console.warn(`Model ${model} returned ${res.status}`);
-        await onFinish("failed");
-        return null;
+        if (res.status === 429 || res.status >= 500 || !res.body) continue;
+        break;
       }
 
       // Forward OpenRouter SSE → plain-text chunks to the client
@@ -298,9 +296,9 @@ async function tryModelsStreaming(
             }
           } catch (error) {
             console.error("Tutor stream failed:", error);
-            await onFinish("failed", inputTokens, outputTokens ?? Math.ceil(outputCharacters / 4));
+            await onFinish("failed", model, inputTokens, outputTokens ?? Math.ceil(outputCharacters / 4));
           } finally {
-            await onFinish("completed", inputTokens, outputTokens ?? Math.ceil(outputCharacters / 4));
+            await onFinish(outputCharacters > 0 ? "completed" : "failed", model, inputTokens, outputTokens ?? Math.ceil(outputCharacters / 4));
             controller.close();
           }
         },
@@ -318,8 +316,9 @@ async function tryModelsStreaming(
       });
     } catch (err) {
       console.warn(`Model ${model} threw:`, err);
-      await onFinish("failed");
+      // A connection error before the stream starts can be recovered by the next model.
     }
+  }
   return null;
 }
 
@@ -366,7 +365,7 @@ export async function POST(req: NextRequest) {
     );
 
     const routeKey = detectRoute(message, action);
-    const model = ROUTERS[routeKey][0];
+    const models = ROUTERS[routeKey];
     const historyMessages = normalizeHistory(body.history);
 
     const requestBody = {
@@ -391,11 +390,11 @@ export async function POST(req: NextRequest) {
     const { data: usageId, error: quotaError } = await admin.rpc("reserve_tutor_usage", {
       p_user_id: auth.user.id,
       p_feature: action,
-      p_model: model,
+      p_model: models[0],
       p_reserved_tokens: reservedTokens,
-      p_daily_token_cap: DAILY_TOKEN_CAP,
-      p_daily_request_cap: DAILY_REQUEST_CAP,
-      p_minute_request_cap: MINUTE_REQUEST_CAP,
+      p_daily_token_cap: TUTOR_LIMITS.reservedTokensPerDay,
+      p_daily_request_cap: TUTOR_LIMITS.requestsPerDay,
+      p_minute_request_cap: TUTOR_LIMITS.requestsPerMinute,
     });
     if (quotaError) {
       console.error("Tutor usage reservation failed:", quotaError.message);
@@ -406,19 +405,21 @@ export async function POST(req: NextRequest) {
     }
 
     let finished = false;
-    const finishUsage = async (status: "completed" | "failed", inputTokens?: number, outputTokens?: number) => {
+    const finishUsage = async (status: "completed" | "failed", model: string, inputTokens?: number, outputTokens?: number) => {
       if (finished) return;
       finished = true;
       const { error } = await admin.from("ai_usage").update({
         status,
+        model,
         input_tokens: inputTokens ?? Math.ceil(JSON.stringify(requestBody).length / 4),
         output_tokens: outputTokens ?? null,
       }).eq("id", usageId);
       if (error) console.error("Tutor usage update failed:", error.message);
     };
 
-    const streamResponse = await tryModelsStreaming(model, requestBody, OPENROUTER_API_KEY, finishUsage);
+    const streamResponse = await tryModelsStreaming(models, requestBody, OPENROUTER_API_KEY, finishUsage);
     if (streamResponse) return streamResponse;
+    await finishUsage("failed", models[models.length - 1]);
 
     return NextResponse.json(
       { error: "All models failed. Please try again." },
