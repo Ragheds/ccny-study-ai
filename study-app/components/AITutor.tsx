@@ -24,7 +24,6 @@ import {
   touchConversation,
 } from "@/lib/chatWorkspace";
 import { KEYS } from "@/lib/storage";
-import { AccountProfile } from "@/lib/account";
 import { StarburstLogo } from "@/components/StarburstLogo";
 
 /* ── constants ──────────────────────────────────────────────────── */
@@ -59,10 +58,8 @@ type ChatListProps = {
 type SidebarContentProps = ChatListProps & {
   courses: SavedCourse[];
   selectedCourse: SavedCourse | null;
-  userName: string;
   onChooseCourse: (c: SavedCourse) => void;
   onClose?: () => void;
-  onCollapse?: () => void;
 };
 
 function formatTime(ts: number) {
@@ -265,11 +262,18 @@ function AIMessage({ msg, isNew }: { msg: ChatMessage; isNew: boolean }) {
   );
 }
 
-function UserMessage({ msg }: { msg: ChatMessage }) {
+function UserMessage({ msg, isNew }: { msg: ChatMessage; isNew?: boolean }) {
   return (
     <div className="px-6 py-3 max-w-3xl mx-auto w-full flex justify-end">
-      <div className="max-w-[75%]">
-        <div className="rounded-[20px] px-5 py-3.5 text-sm leading-relaxed" style={{ background: "var(--app-text)", color: "var(--app-bg)" }}>
+      <div className="max-w-[75%]" style={{ animation: isNew ? "user-msg-in .3s ease-out" : "none" }}>
+        <div
+          className="rounded-[20px] px-5 py-3.5 text-sm leading-relaxed"
+          style={{
+            background: "linear-gradient(135deg,#2A2A28,#1A1A18)",
+            color: "var(--app-bg)",
+            boxShadow: "0 2px 10px rgba(0,0,0,.14)",
+          }}
+        >
           <p className="whitespace-pre-wrap">{msg.content}</p>
         </div>
         <p className="mt-1 pr-1 text-right text-[11px] text-[var(--app-muted)]">{formatTime(msg.timestamp)}</p>
@@ -463,8 +467,8 @@ function ChatList({
 
 /* ── sidebar content ────────────────────────────────────────────── */
 function SidebarContent(props: SidebarContentProps) {
-  const { courses, selectedCourse, userName, onChooseCourse, onClose, onCollapse, ...chatListProps } = props;
-  const [pickerOpen, setPickerOpen] = useState(false);
+const { courses, selectedCourse, onChooseCourse, onClose, ...chatListProps } = props;
+const [pickerOpen, setPickerOpen] = useState(false);
   const [glowing, setGlowing] = useState(false);
   const [stars, setStars] = useState<Star[]>([]);
 
@@ -492,17 +496,9 @@ function SidebarContent(props: SidebarContentProps) {
           <StarburstLogo size={16} white />
         </div>
         <div className="min-w-0 flex-1">
-          {/* ← FIXED: uses real account name, no longer hardcoded "Raghed" */}
-          <p className="text-sm font-semibold text-[var(--app-text)]">{userName || "AI Tutor"}</p>
+          <p className="text-sm font-semibold text-[var(--app-text)]">AI Tutor</p>
           <TypingPhrase />
         </div>
-        {onCollapse && (
-          <button type="button" onClick={onCollapse}
-            className="flex h-7 w-7 items-center justify-center rounded-lg text-[var(--app-muted)] transition hover:bg-[var(--app-surface-muted)] hover:text-[var(--app-text)]"
-            title="Collapse sidebar">
-            <SidebarCloseIcon />
-          </button>
-        )}
         {onClose && (
           <button type="button" onClick={onClose}
             className="flex h-7 w-7 items-center justify-center rounded-lg text-[var(--app-muted)] transition hover:bg-[var(--app-surface-muted)] hover:text-[var(--app-text)]">
@@ -568,7 +564,6 @@ function SidebarContent(props: SidebarContentProps) {
 /* ── Main ───────────────────────────────────────────────────────── */
 export function AITutor({ major, courses, activeCourseCode, onActiveCourseChange }: AITutorProps) {
   const hydrated = useHydrated();
-  const [account]                    = useStoredValue<AccountProfile | null>(KEYS.ACCOUNT, null);
   const [workspace, setWorkspace]    = useStoredValue(KEYS.CHAT_WORKSPACE, EMPTY_CHAT_WORKSPACE);
   const [legacyMsgs]                 = useStoredValue(KEYS.CHAT_HISTORY, EMPTY_MESSAGES);
   const [uploadDraft, setUploadDraft] = useStoredValue<{ text: string; fileName: string }>(KEYS.UPLOAD_DRAFT, { text: "", fileName: "" });
@@ -588,8 +583,25 @@ export function AITutor({ major, courses, activeCourseCode, onActiveCourseChange
   const [toasts, setToasts]           = useState<Toast[]>([]);
   const [isExtractingPDF, setIsExtractingPDF] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [containerHeight, setContainerHeight] = useState<number | null>(null);
 
-  const userName = account?.name ?? "";
+  // Measure exactly how much viewport space is actually left below this
+  // component (navbar + tab bar height varies by device/zoom), instead of
+  // guessing with a fixed "100dvh - 180px" — a wrong guess is what let the
+  // whole page scroll to reveal empty space under the sidebar/chat.
+  useEffect(() => {
+    function measure() {
+      if (!containerRef.current) return;
+      const top = containerRef.current.getBoundingClientRect().top;
+      setContainerHeight(window.innerHeight - top);
+    }
+    measure();
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  }, [hydrated]);
+
+  const fixedHeight = containerHeight !== null ? `${containerHeight}px` : "calc(100dvh - 180px)";
 
   const addToast = useCallback((msg: string, type: "success" | "error" = "success") => {
     const id = `t_${Date.now()}`;
@@ -732,7 +744,7 @@ export function AITutor({ major, courses, activeCourseCode, onActiveCourseChange
   };
 
   const sidebarProps: SidebarContentProps = {
-    courses, selectedCourse: sel, userName,
+    courses, selectedCourse: sel,
     onChooseCourse: chooseCourse,
     activeConversation: aConv, conversationGroups: groups,
     editingConvId, editingTitle, selectedCourseCode: sel?.code ?? "",
@@ -742,20 +754,20 @@ export function AITutor({ major, courses, activeCourseCode, onActiveCourseChange
     onSelectConversation: selectConv, onStartNewChat: startNewChat, onSubmitRename: submitRename,
   };
 
-  if (!hydrated) return <div style={{ height: "calc(100dvh - 180px)" }} />;
+  if (!hydrated) return <div ref={containerRef} style={{ height: fixedHeight }} />;
   if (courses.length === 0 || !sel) return <div className="py-20 text-center text-[var(--app-muted)]">Add courses to use the AI Tutor.</div>;
 
   const hasMessages = msgs.length > 0 || loading || orbitsLeaving;
 
   return (
-    <div className="flex overflow-hidden" style={{ height: "calc(100dvh - 180px)" }}>
+    <div ref={containerRef} className="flex overflow-hidden" style={{ height: fixedHeight }}>
       <ToastContainer toasts={toasts} />
 
       {/* ── Desktop sidebar ─────────────────────────────────────── */}
       <aside className="hidden lg:flex flex-col shrink-0 overflow-hidden border-r border-[var(--app-border)]"
         style={{ width: sidebarCollapsed ? 0 : 260, transition: "width 0.28s cubic-bezier(0.4,0,0.2,1)", background: "var(--app-surface)", minWidth: 0 }}>
         <div style={{ width: 260, minWidth: 260, height: "100%", display: "flex", flexDirection: "column" }}>
-          <SidebarContent {...sidebarProps} onCollapse={() => setSidebarCollapsed(true)} />
+          <SidebarContent {...sidebarProps} />
         </div>
       </aside>
 
@@ -835,7 +847,7 @@ export function AITutor({ major, courses, activeCourseCode, onActiveCourseChange
               <div className="py-4">
                 {msgs.map(msg =>
                   msg.role === "user"
-                    ? <UserMessage key={msg.id} msg={msg} />
+                    ? <UserMessage key={msg.id} msg={msg} isNew={msg.id === newMsgId} />
                     : <AIMessage key={msg.id} msg={msg} isNew={msg.id === newMsgId} />
                 )}
                 {/* streaming content replaces the loader once first chunk arrives */}

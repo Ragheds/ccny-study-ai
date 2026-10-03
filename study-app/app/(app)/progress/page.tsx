@@ -33,6 +33,7 @@ type ProgressSnapshot = {
   now: number;
   stats: Stats;
   heatmap: number[];
+  quizTrend: { date: number; score: number }[];
 };
 
 /* ── read account-scoped storage using the app's real scoping rules ────────── */
@@ -130,7 +131,14 @@ function buildProgressSnapshot(): ProgressSnapshot {
     const daysAgo = Math.floor((now - ts) / DAY);
     if (daysAgo >= 0 && daysAgo < 28) buckets[27 - daysAgo]++;
   }
-
+  const quizTrend = allQuizAttempts
+    .slice()
+    .sort((a, b) => a.createdAt - b.createdAt)
+    .slice(-10)
+    .map((attempt) => ({
+      date: attempt.createdAt,
+      score: attempt.totalQuestions ? Math.round((attempt.correctCount / attempt.totalQuestions) * 100) : 0,
+    }));
   const stats: Stats = {
     totalConversations: allConvs.length,
     totalMessages,
@@ -144,7 +152,7 @@ function buildProgressSnapshot(): ProgressSnapshot {
     recentActivity: activity.slice(0, 12),
   };
 
-  return { now, stats, heatmap: buckets };
+  return { now, stats, heatmap: buckets, quizTrend };
 }
 
 /* ── activity heatmap ────────────────────────────────────────────────────── */
@@ -153,6 +161,44 @@ function HeatmapCell({ count }: { count: number }) {
   const colors = ["var(--app-surface-muted)", "rgba(255,107,53,.2)", "rgba(255,107,53,.4)", "rgba(255,107,53,.7)", "rgb(255,107,53)"];
   return (
     <div title={`${count} activities`} className="h-4 w-4 rounded-sm transition" style={{ background: colors[level] }} />
+  );
+}
+/* ── quiz score trend chart ──────────────────────────────────────────────── */
+function QuizTrendChart({ data }: { data: { date: number; score: number }[] }) {
+  if (data.length < 2) {
+    return (
+      <div className="flex h-40 items-center justify-center text-sm text-[var(--app-muted)]">
+        Take at least 2 quizzes to see your score trend.
+      </div>
+    );
+  }
+
+  const width = 600;
+  const height = 160;
+  const padding = 20;
+
+  const points = data.map((d, i) => {
+    const x = padding + (i / (data.length - 1)) * (width - padding * 2);
+    const y = height - padding - (d.score / 100) * (height - padding * 2);
+    return { x, y, score: d.score };
+  });
+
+  const pathD = points.map((p, i) => `${i === 0 ? "M" : "L"} ${p.x} ${p.y}`).join(" ");
+
+  return (
+    <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-40">
+      {[0, 25, 50, 75, 100].map((pct) => {
+        const y = height - padding - (pct / 100) * (height - padding * 2);
+        return (
+          <line key={pct} x1={padding} y1={y} x2={width - padding} y2={y}
+            stroke="var(--app-border)" strokeWidth="1" />
+        );
+      })}
+      <path d={pathD} fill="none" stroke="#FF6B35" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+      {points.map((p, i) => (
+        <circle key={i} cx={p.x} cy={p.y} r="4" fill="#FF6B35" />
+      ))}
+    </svg>
   );
 }
 
@@ -253,6 +299,10 @@ export default function ProgressPage() {
             Last study session: <span className="font-medium text-[var(--app-text)]">{formatRelative(stats.lastActive)}</span>
           </div>
         )}
+        <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface)] p-5">
+          <p className="text-sm font-semibold mb-4">Quiz score trend</p>
+          <QuizTrendChart data={snapshot.quizTrend} />
+        </div>
 
         <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface)] p-5">
           <p className="text-sm font-semibold mb-4">Study activity — last 28 days</p>

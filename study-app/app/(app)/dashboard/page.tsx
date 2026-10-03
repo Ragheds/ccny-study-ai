@@ -1,7 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { StarburstLogo } from "@/components/StarburstLogo";
+import { Suspense, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { AITutor } from "@/components/AITutor";
 import { FlashcardsWorkspace } from "@/components/FlashcardsWorkspace";
 import { LearnThisModal } from "@/components/LearnThisModal";
@@ -33,17 +35,6 @@ const TABS = [
 ] as const;
 
 type TabId = (typeof TABS)[number]["id"];
-
-function getInitialTab(): TabId {
-  if (typeof window === "undefined") return "courses";
-  const requestedTab = new URLSearchParams(window.location.search).get("tab");
-  return TABS.find((tab) => tab.id === requestedTab)?.id ?? "courses";
-}
-
-function getInitialCourseCode(): string | null {
-  if (typeof window === "undefined") return null;
-  return new URLSearchParams(window.location.search).get("course");
-}
 
 function updateDashboardUrl(tab: TabId, courseCode?: string | null): void {
   if (typeof window === "undefined") return;
@@ -516,7 +507,14 @@ function QuizzesTab({ major, courses }: { major: SavedMajor; courses: SavedCours
           className="w-full rounded-2xl py-3.5 text-sm font-semibold text-white transition disabled:opacity-50"
           style={{ background: "linear-gradient(135deg,#FF6B35,#F7931E)", boxShadow: "0 4px 14px rgba(255,107,53,.3)" }}
         >
-          {loading ? progressLabel || "Generating…" : "Generate Quiz →"}
+          {loading ? (
+  <span className="flex items-center justify-center gap-2">
+    <span className="generating-icon"><StarburstLogo size={16} white /></span>
+    {progressLabel || "Generating…"}
+  </span>
+) : (
+  "Generate Quiz →"
+)}
         </button>
       </div>
 
@@ -600,21 +598,17 @@ function QuizzesTab({ major, courses }: { major: SavedMajor; courses: SavedCours
   );
 }
 export default function DashboardPage() {
+  return <Suspense fallback={<div className="p-6 text-[var(--app-muted)]">Loading dashboard…</div>}><DashboardContent /></Suspense>;
+}
+
+function DashboardContent() {
   const hydrated = useHydrated();
   const [major] = useStoredValue<SavedMajor | null>(KEYS.MAJOR, null);
   const [courses] = useStoredValue(KEYS.COURSES, EMPTY_COURSES);
-  const [activeTab, setActiveTab] = useState<TabId>(getInitialTab);
-  const [activeCourseCode, setActiveCourseCode] = useState<string | null>(getInitialCourseCode);
-
-  useEffect(() => {
-    const openDashboardHome = () => {
-      setActiveTab("courses");
-      setActiveCourseCode(null);
-    };
-
-    window.addEventListener("ccny-dashboard-home", openDashboardHome);
-    return () => window.removeEventListener("ccny-dashboard-home", openDashboardHome);
-  }, []);
+  const searchParams = useSearchParams();
+  const activeTab: TabId = TABS.find((t) => t.id ===
+  searchParams.get("tab"))?.id ?? "courses";
+  const activeCourseCode = searchParams.get("course");
 
   const grouped = courses.reduce((acc, course) => {
     if (!acc[course.section]) acc[course.section] = [];
@@ -623,22 +617,17 @@ export default function DashboardPage() {
   }, {} as Record<string, SavedCourse[]>);
 
   const openTab = (tab: TabId) => {
-    const needsCourse = tab === "ai" || tab === "flashcards";
-    const courseCode = needsCourse ? activeCourseCode ?? courses[0]?.code ?? null : null;
-    setActiveTab(tab);
-    if (needsCourse) setActiveCourseCode(courseCode);
-    updateDashboardUrl(tab, courseCode);
+  const needsCourse = tab === "ai" || tab === "flashcards";
+  const courseCode = needsCourse ? activeCourseCode ?? courses[0]?.code ?? null : null;
+  updateDashboardUrl(tab, courseCode);
   };
 
   const openCourseWorkspace = (course: SavedCourse) => {
-    setActiveTab("ai");
-    setActiveCourseCode(course.code);
-    updateDashboardUrl("ai", course.code);
+  updateDashboardUrl("ai", course.code);
   };
 
   const handleWorkspaceCourseChange = (courseCode: string) => {
-    setActiveCourseCode(courseCode);
-    updateDashboardUrl(activeTab === "flashcards" ? "flashcards" : "ai", courseCode);
+  updateDashboardUrl(activeTab === "flashcards" ? "flashcards" : "ai", courseCode);
   };
 
   if (!hydrated) return <main className="min-h-screen bg-[var(--app-bg)]" />;
@@ -670,7 +659,7 @@ export default function DashboardPage() {
 
   return (
     <main className="min-h-screen bg-[var(--app-bg)] text-[var(--app-text)]">
-      <div className="border-b border-[var(--app-border)] bg-[var(--app-nav)] backdrop-blur sticky top-[65px] z-20">
+      <div className="border-b border-[var(--app-border)] bg-[var(--app-nav)] backdrop-blur sticky top-0 z-20">
         <div className="max-w-7xl mx-auto px-6 py-2">
           <div className="flex gap-1 overflow-x-auto">
             {TABS.map((tab) => (
