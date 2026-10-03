@@ -55,7 +55,7 @@ export async function loadRemoteAppState(userId: string): Promise<RemoteAppState
 
   const [cache, profile, courses, notes, flashcards, quizzes] = await Promise.all([
     supabase.from("user_app_state").select("state,updated_at").eq("user_id", userId).maybeSingle(),
-    supabase.from("profiles").select("major,updated_at").eq("user_id", userId).maybeSingle(),
+    supabase.from("profiles").select("major,study_mode,study_mode_prompt_dismissed,updated_at").eq("user_id", userId).maybeSingle(),
     supabase.from("user_courses").select("data").eq("user_id", userId).eq("is_deleted", false),
     supabase.from("notes").select("course_code,data").eq("user_id", userId).eq("is_deleted", false),
     supabase.from("flashcards").select("id,data").eq("user_id", userId).eq("is_deleted", false),
@@ -73,6 +73,8 @@ export async function loadRemoteAppState(userId: string): Promise<RemoteAppState
   const data: AccountScopedStorageSnapshot = { ...normalized?.data };
   if (profile.data) {
     data.ccny_major = profile.data.major;
+    data.ccny_study_mode = profile.data.study_mode;
+    data.ccny_study_mode_dismissed = profile.data.study_mode_prompt_dismissed;
     data.ccny_courses = (courses.data ?? []).map((course: { data: unknown }) => course.data);
     data.ccny_notes_v2 = Object.fromEntries((notes.data ?? []).map((note: { course_code: string; data: unknown }) => [note.course_code, note.data]));
     const savedCards = data.ccny_flashcards as Record<string, unknown> | undefined;

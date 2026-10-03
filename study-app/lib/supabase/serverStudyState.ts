@@ -28,7 +28,7 @@ export async function loadServerStudyState(): Promise<ServerStudyState | null> {
   const userId = auth.user.id;
   const [cache, profile, courses, notes, flashcards, quizzes] = await Promise.all([
     supabase.from("user_app_state").select("state,updated_at").eq("user_id", userId).maybeSingle(),
-    supabase.from("profiles").select("major,updated_at").eq("user_id", userId).maybeSingle(),
+    supabase.from("profiles").select("major,study_mode,study_mode_prompt_dismissed,updated_at").eq("user_id", userId).maybeSingle(),
     supabase.from("user_courses").select("data").eq("user_id", userId).eq("is_deleted", false),
     supabase.from("notes").select("course_code,data").eq("user_id", userId).eq("is_deleted", false),
     supabase.from("flashcards").select("id,data").eq("user_id", userId).eq("is_deleted", false),
@@ -40,6 +40,8 @@ export async function loadServerStudyState(): Promise<ServerStudyState | null> {
   const data: AccountScopedStorageSnapshot = { ...(state?.data ?? {}) };
   if (profile.data) {
     data[KEYS.MAJOR] = profile.data.major;
+    data[KEYS.STUDY_MODE] = profile.data.study_mode;
+    data[KEYS.STUDY_MODE_DISMISSED] = profile.data.study_mode_prompt_dismissed;
     data[KEYS.COURSES] = (courses.data ?? []).map((course) => course.data);
     data[KEYS.NOTES_V2] = Object.fromEntries((notes.data ?? []).map((note) => [note.course_code, note.data]));
     const cardStore = data[KEYS.FLASHCARDS] as Record<string, unknown> | undefined;
