@@ -1,4 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+
+const DAILY_TOKEN_CAP = 12000;
+const DAILY_REQUEST_CAP = 15;
+const MINUTE_REQUEST_CAP = 5;
 
 type TutorHistoryMessage = {
   role?: "user" | "ai" | "assistant";
@@ -28,7 +34,7 @@ type TutorRequestBody = {
 };
 
 // ── model routing ────────────────────────────────────────────────────────────
-// Each array is tried in order; first model that returns HTTP 200 wins.
+// Phase 0 uses the first free model per route; each request is one metered call.
 const ROUTERS = {
   // Code questions: Qwen Coder first (best free coding model)
   code: [
@@ -87,13 +93,13 @@ function normalizeHistory(history: TutorHistoryMessage[] | undefined) {
   if (!Array.isArray(history)) return [];
   return history
     .filter((m) => m.content?.trim())
-    .slice(-20) // ← was 8, now 20 for better long-session context
+    .slice(-8)
     .map((m) => ({
       role:
         m.role === "ai" || m.role === "assistant"
           ? ("assistant" as const)
           : ("user" as const),
-      content: m.content ?? "",
+      content: (m.content ?? "").slice(0, 2000),
     }));
 }
 
@@ -186,12 +192,12 @@ YOUTUBE_SEARCH: <a short, specific YouTube search query, 5-8 words, that would s
 
 // ── streaming fetch from OpenRouter ─────────────────────────────────────────
 async function tryModelsStreaming(
-  models: string[],
+  model: string,
   requestBody: object,
-  apiKey: string
+  apiKey: string,
+  onFinish: (status: "completed" | "failed", inputTokens?: number, outputTokens?: number) => Promise<void>
 ): Promise<Response | null> {
-  for (const model of models) {
-    try {
+  try {
       const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
         method: "POST",
         headers: {
@@ -200,18 +206,22 @@ async function tryModelsStreaming(
           "HTTP-Referer": "https://ccny-study-ai.vercel.app",
           "X-Title": "CCNY Study AI",
         },
-        body: JSON.stringify({ ...requestBody, model, stream: true }),
+        body: JSON.stringify({ ...requestBody, model, stream: true, stream_options: { include_usage: true } }),
       });
 
       if (!res.ok || !res.body) {
-        console.warn(`Model ${model} returned ${res.status}, trying next…`);
-        continue;
+        console.warn(`Model ${model} returned ${res.status}`);
+        await onFinish("failed");
+        return null;
       }
 
       // Forward OpenRouter SSE → plain-text chunks to the client
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
       let buffer = "";
+      let inputTokens: number | undefined;
+      let outputTokens: number | undefined;
+      let outputCharacters = 0;
 
       const stream = new ReadableStream({
         async start(controller) {
@@ -238,10 +248,18 @@ async function tryModelsStreaming(
                     const parsed = JSON.parse(data) as {
                       choices?: Array<{ delta?: { content?: string } }>;
                       error?: unknown;
+                      usage?: { prompt_tokens?: number; completion_tokens?: number };
                     };
                     if (parsed.error) continue;
+                    if (parsed.usage) {
+                      inputTokens = parsed.usage.prompt_tokens;
+                      outputTokens = parsed.usage.completion_tokens;
+                    }
                     const text = parsed.choices?.[0]?.delta?.content;
-                    if (text) controller.enqueue(new TextEncoder().encode(text));
+                    if (text) {
+                      outputCharacters += text.length;
+                      controller.enqueue(new TextEncoder().encode(text));
+                    }
                   } catch {
                     // malformed chunk — skip
                   }
@@ -261,16 +279,28 @@ async function tryModelsStreaming(
                   const parsed = JSON.parse(data) as {
                     choices?: Array<{ delta?: { content?: string } }>;
                     error?: unknown;
+                    usage?: { prompt_tokens?: number; completion_tokens?: number };
                   };
                   if (parsed.error) continue;
+                  if (parsed.usage) {
+                    inputTokens = parsed.usage.prompt_tokens;
+                    outputTokens = parsed.usage.completion_tokens;
+                  }
                   const text = parsed.choices?.[0]?.delta?.content;
-                  if (text) controller.enqueue(new TextEncoder().encode(text));
+                  if (text) {
+                    outputCharacters += text.length;
+                    controller.enqueue(new TextEncoder().encode(text));
+                  }
                 } catch {
                   // malformed chunk — skip
                 }
               }
             }
+          } catch (error) {
+            console.error("Tutor stream failed:", error);
+            await onFinish("failed", inputTokens, outputTokens ?? Math.ceil(outputCharacters / 4));
           } finally {
+            await onFinish("completed", inputTokens, outputTokens ?? Math.ceil(outputCharacters / 4));
             controller.close();
           }
         },
@@ -288,14 +318,21 @@ async function tryModelsStreaming(
       });
     } catch (err) {
       console.warn(`Model ${model} threw:`, err);
+      await onFinish("failed");
     }
-  }
   return null;
 }
 
 // ── route handler ────────────────────────────────────────────────────────────
 export async function POST(req: NextRequest) {
   try {
+    const supabase = await createSupabaseServerClient();
+    if (!supabase) return NextResponse.json({ error: "Tutor unavailable" }, { status: 503 });
+    const { data: auth, error: authError } = await supabase.auth.getUser();
+    if (authError || !auth.user) {
+      return NextResponse.json({ error: "Sign in to use the tutor." }, { status: 401 });
+    }
+
     let body: TutorRequestBody;
     try {
       body = (await req.json()) as TutorRequestBody;
@@ -310,6 +347,9 @@ export async function POST(req: NextRequest) {
     const message = typeof body.message === "string" ? body.message.trim() : "";
     if (!message) {
       return NextResponse.json({ error: "A message is required" }, { status: 400 });
+    }
+    if (message.length > 8000) {
+      return NextResponse.json({ error: "Message is too long." }, { status: 413 });
     }
 
     const action = body.action ?? "general";
@@ -326,7 +366,7 @@ export async function POST(req: NextRequest) {
     );
 
     const routeKey = detectRoute(message, action);
-    const models = ROUTERS[routeKey];
+    const model = ROUTERS[routeKey][0];
     const historyMessages = normalizeHistory(body.history);
 
     const requestBody = {
@@ -339,7 +379,45 @@ export async function POST(req: NextRequest) {
       temperature: action === "quiz" || action === "flashcards" ? 0.3 : 0.7,
     };
 
-    const streamResponse = await tryModelsStreaming(models, requestBody, OPENROUTER_API_KEY);
+    // The database function holds a per-user transaction lock so parallel requests
+    // cannot both pass the same quota check. Missing migration fails closed.
+    let admin;
+    try {
+      admin = createSupabaseAdminClient();
+    } catch {
+      return NextResponse.json({ error: "Tutor unavailable" }, { status: 503 });
+    }
+    const reservedTokens = Math.min(8192, Math.ceil(JSON.stringify(requestBody).length / 4) + requestBody.max_tokens);
+    const { data: usageId, error: quotaError } = await admin.rpc("reserve_tutor_usage", {
+      p_user_id: auth.user.id,
+      p_feature: action,
+      p_model: model,
+      p_reserved_tokens: reservedTokens,
+      p_daily_token_cap: DAILY_TOKEN_CAP,
+      p_daily_request_cap: DAILY_REQUEST_CAP,
+      p_minute_request_cap: MINUTE_REQUEST_CAP,
+    });
+    if (quotaError) {
+      console.error("Tutor usage reservation failed:", quotaError.message);
+      return NextResponse.json({ error: "Tutor unavailable. Please try again later." }, { status: 503 });
+    }
+    if (!usageId) {
+      return NextResponse.json({ error: "Daily tutor limit reached. Try again tomorrow." }, { status: 429 });
+    }
+
+    let finished = false;
+    const finishUsage = async (status: "completed" | "failed", inputTokens?: number, outputTokens?: number) => {
+      if (finished) return;
+      finished = true;
+      const { error } = await admin.from("ai_usage").update({
+        status,
+        input_tokens: inputTokens ?? Math.ceil(JSON.stringify(requestBody).length / 4),
+        output_tokens: outputTokens ?? null,
+      }).eq("id", usageId);
+      if (error) console.error("Tutor usage update failed:", error.message);
+    };
+
+    const streamResponse = await tryModelsStreaming(model, requestBody, OPENROUTER_API_KEY, finishUsage);
     if (streamResponse) return streamResponse;
 
     return NextResponse.json(
