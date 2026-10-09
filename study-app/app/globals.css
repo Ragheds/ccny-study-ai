@@ -1023,3 +1023,8 @@ body:has(.auth-page) {
   from { transform: translateX(-18px); opacity: 0; }
   to   { transform: translateX(0);     opacity: 1; }
 }
+@keyframes board-write { from {clip-path: inset(0 100% 0 0);} to {clip-path: inset(0 0 0 0);} }
+.board-write { animation: board-write 2s ease-out both; }
+@keyframes board-plots { from {opacity:0;} to {opacity:1;} }
+.board-plots { animation: board-plots 700ms 300ms ease both; }
+@media (prefers-reduced-motion: reduce) { .board-write,.board-plots {animation:none;} }

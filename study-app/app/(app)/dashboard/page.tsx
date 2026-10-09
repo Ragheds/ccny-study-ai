@@ -13,6 +13,7 @@ import type { SavedCourse, SavedMajor } from "@/lib/chatWorkspace";
 import { isCodeCourse } from "@/lib/entitlements";
 import { KEYS } from "@/lib/storage";
 
+const WhiteboardTutor = dynamic(() => import("@/components/whiteboard/WhiteboardTutor").then(module=>module.WhiteboardTutor), {loading:()=> <WorkspaceSkeleton />});
 const AITutor = dynamic(() => import("@/components/AITutor").then((module) => module.AITutor), { loading: () => <WorkspaceSkeleton /> });
 const FlashcardsWorkspace = dynamic(() => import("@/components/FlashcardsWorkspace").then((module) => module.FlashcardsWorkspace), { loading: () => <WorkspaceSkeleton /> });
 const QuizzesTab = dynamic(() => import("@/components/QuizzesWorkspace").then((module) => module.QuizzesTab), { loading: () => <WorkspaceSkeleton /> });
@@ -65,7 +66,7 @@ function DashboardContent() {
     <CourseModeBar courses={courses} selectedCourse={selectedCourse} activeMode={activeMode} onHome={() => openTab("courses", null)} onOpen={(mode, courseCode) => openTab(mode, courseCode)} onCourseChange={(code) => navigate(undefined, code)} />
     {activeTab === "courses" && <DashboardHome major={major} courses={courses} onOpen={openTab} selectedCourseCode={activeCourseCode} />}
     {activeTab === "ai" && <AITutor key={activeCourseCode ?? "ai"} major={major} courses={courses} activeCourseCode={activeCourseCode} />}
-    {activeTab === "whiteboard" && <PhasePreview title="Whiteboard" phase={8} onChat={() => openTab("ai")} />}
+    {activeTab === "whiteboard" && <WhiteboardTutor key={activeCourseCode ?? "board"} courseCode={activeCourseCode ?? ""} />}
     {activeTab === "notes" && <NotesWorkspace key={activeCourseCode ?? "notes"} initialCourseCode={activeCourseCode ?? ""} />}
     {activeTab === "code" && <PhasePreview title="Code workspace" phase={9} onChat={() => openTab("ai")} />}
     {activeTab === "flashcards" && <FlashcardsWorkspace key={activeCourseCode ?? "flashcards"} major={major} courses={courses} activeCourseCode={activeCourseCode} />}

@@ -76,7 +76,7 @@ export function pauseSpeech() {
 export function resumeSpeech() {
   if (speechSupported() && state.status === "paused") { window.speechSynthesis.resume(); publish({ ...state, status: "playing" }); }
 }
-export function speakText(text: string, preferences: SpeechPreferences = DEFAULT_SPEECH_PREFERENCES, replyId: string | null = null) {
+export function speakText(text: string, preferences: SpeechPreferences = DEFAULT_SPEECH_PREFERENCES, replyId: string | null = null, onComplete?: () => void) {
   stopSpeech();
   if (!speechSupported()) return;
   const sentences = speechSentences(text);
@@ -88,11 +88,11 @@ export function speakText(text: string, preferences: SpeechPreferences = DEFAULT
   publish({ status: "playing", replyId });
   function next() {
     if (token !== generation) return;
-    if (index >= sentences.length) { activeUtterance = null; publish(IDLE); return; }
+    if (index >= sentences.length) { activeUtterance = null; publish(IDLE); onComplete?.(); return; }
     const utterance = new SpeechSynthesisUtterance(sentences[index++]);
     utterance.voice = voice;
     utterance.lang = voice?.lang ?? "en-US";
-    utterance.rate = Math.min(1.3, Math.max(0.8, preferences.rate || 1));
+    utterance.rate = Math.min(1.3, Math.max(0.75, preferences.rate || 1));
     utterance.onend = next;
     utterance.onerror = () => { if (token === generation) stopSpeech(); };
     activeUtterance = utterance;

@@ -1,4 +1,5 @@
 "use client";
+import { OfflineLessons } from "@/components/whiteboard/OfflineLessons";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import type { StudyPack } from "@/lib/packs";
@@ -93,7 +94,7 @@ export function OfflineLibrary() {
   return (
     <main className="mx-auto max-w-3xl space-y-5 p-5">
       <Link href="/dashboard">← Study home</Link>
-      <h1 className="text-2xl font-semibold">Downloaded study packs</h1>
+      <h1 className="text-2xl font-semibold">Downloaded study packs</h1><OfflineLessons />
       <p>
         Download before you leave. AI needs internet; saved notes, cards,
         quizzes and captions work offline.
