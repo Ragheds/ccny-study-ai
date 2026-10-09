@@ -27,7 +27,14 @@ export async function downloadPack(pack: StudyPack) {
   if (pack.user_id !== getActiveAccountId())
     throw new Error("Switch back to the pack's account.");
   const db = await database();
-  await db.put("packs", pack);
+  const tx = db.transaction(["packs", "edits"], "readwrite");
+  const queued = await tx.objectStore("edits").get(`${pack.id}:notes`);
+  // A refresh must preserve a local edit whose sync has not succeeded.
+  const next = queued?.user_id === pack.user_id && typeof queued.data === "string"
+    ? { ...pack, content: { ...pack.content, notes: queued.data }, updated_at: queued.updated_at }
+    : pack;
+  await tx.objectStore("packs").put(next);
+  await tx.done;
   trackEvent("pack_download");
   window.dispatchEvent(new Event("packs-changed"));
 }
@@ -45,9 +52,10 @@ export async function queueEdit(
   if (pack.user_id !== getActiveAccountId())
     throw new Error("Sign in to this pack's account.");
   const db = await database();
-  const updated_at = new Date().toISOString();
   const id = kind === "notes" ? `${pack.id}:notes` : crypto.randomUUID();
   const tx = db.transaction(["packs", "edits"], "readwrite");
+  const previous = await tx.objectStore("edits").get(id);
+  const updated_at = new Date(Math.max(Date.now(), (Date.parse(previous?.updated_at ?? "") || 0) + 1)).toISOString();
   if (kind === "notes")
     await tx
       .objectStore("packs")
@@ -73,6 +81,7 @@ export async function syncEdits() {
       (edit) => edit.user_id === getActiveAccountId(),
     );
     for (const edit of edits) {
+      if (edit.user_id !== getActiveAccountId()) break;
       const response = await fetch("/api/offline/sync", {
         method: "POST",
         headers: { "Content-Type": "application/json" },

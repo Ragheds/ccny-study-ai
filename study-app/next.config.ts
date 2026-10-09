@@ -12,6 +12,6 @@ const withSerwist = withSerwistInit({
   ],
 });
 
-const nextConfig: NextConfig = {/* config options here */};
+const nextConfig: NextConfig = { serverExternalPackages: ["pdf-parse"] };
 
 export default withSerwist(nextConfig);

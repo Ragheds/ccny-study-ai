@@ -1,4 +1,5 @@
 import "server-only";
+import { BodyError } from "@/lib/server/body";
 import { studentAccess } from "@/lib/server/access";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { modelFor, estimateCost } from "@/lib/models";
@@ -106,10 +107,10 @@ export function studyError(error: unknown) {
   return Response.json(
     {
       error:
-        error instanceof StudyError
+        (error instanceof StudyError || error instanceof BodyError)
           ? error.message
           : "Study service unavailable. Please try again.",
     },
-    { status: error instanceof StudyError ? error.status : 503 },
+    { status: error instanceof StudyError || error instanceof BodyError ? error.status : 503 },
   );
 }

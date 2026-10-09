@@ -1,3 +1,4 @@
+import { boundedJSON } from "@/lib/server/body";
 import { studentAccess } from "@/lib/server/access";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { StudyError, studyError } from "@/lib/server/generate";
@@ -31,7 +32,7 @@ export async function POST(request: Request) {
         "Whiteboard needs Pro or a beta invite. Chat and downloaded packs remain available.",
         403,
       );
-    const body = await request.json();
+    const body = await boundedJSON(request);
     if (
       typeof body.question !== "string" ||
       body.question.trim().length < 3 ||

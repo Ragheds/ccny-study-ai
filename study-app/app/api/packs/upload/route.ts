@@ -1,4 +1,5 @@
-import { PDFParse } from "pdf-parse";
+import { boundedBody } from "@/lib/server/body";
+import { extractPDFText } from "@/lib/server/pdfText";
 import { studentAccess } from "@/lib/server/access";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { generateText, studyError, StudyError } from "@/lib/server/generate";
@@ -16,7 +17,10 @@ export async function POST(request: Request) {
     if (!access) throw new StudyError("Sign in first.", 401);
     if (Number(request.headers.get("content-length")) > 5300000)
       throw new StudyError("PDF limit is 5 MB.", 413);
-    const form = await request.formData();
+    const bytes = await boundedBody(request, 5300000);
+    const form = await new Response(bytes as BodyInit, {
+      headers: { "Content-Type": request.headers.get("content-type") ?? "" },
+    }).formData();
     const courseCode = form.get("courseCode");
     const file = form.get("file");
     let text = String(form.get("text") ?? "");
@@ -29,19 +33,8 @@ export async function POST(request: Request) {
       .maybeSingle();
     if (!course) throw new StudyError("Choose a saved course.", 403);
     if (file instanceof File && file.size) {
-      if (file.size > 5000000 || file.type !== "application/pdf")
-        throw new StudyError("Upload a PDF of 5 MB or less.", 413);
-      const buffer = new Uint8Array(await file.arrayBuffer());
-      if (new TextDecoder().decode(buffer.slice(0, 5)) !== "%PDF-")
-        throw new StudyError("This is not a PDF.", 400);
-      const parser = new PDFParse({ data: buffer });
-      try {
-        const result = await parser.getText();
-        text = result.text;
-        title = file.name.slice(0, 120);
-      } finally {
-        await parser.destroy();
-      }
+      text = await extractPDFText(file);
+      title = file.name.slice(0, 120);
     }
     if (text.trim().length < 80)
       throw new StudyError(

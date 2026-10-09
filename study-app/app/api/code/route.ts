@@ -1,3 +1,4 @@
+import { boundedJSON } from "@/lib/server/body";
 import { z } from "zod";
 import { studentAccess } from "@/lib/server/access";
 import { generateText, StudyError, studyError } from "@/lib/server/generate";
@@ -17,7 +18,7 @@ export async function POST(request: Request) {
       throw new StudyError("Code mode needs Pro or a beta invite.", 403);
     if (Number(request.headers.get("content-length")) > 40000)
       throw new StudyError("Keep your question and attempt shorter.", 413);
-    const body = Input.parse(await request.json());
+    const body = Input.parse(await boundedJSON(request));
     const [state, courses] = await Promise.all([
       access.db
         .from("user_app_state")
