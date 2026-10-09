@@ -1,6 +1,6 @@
 "use client";
 
-import { ChangeEvent, useCallback, useEffect, useRef, useState } from "react";
+import { ChangeEvent, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useHydrated, useStoredValue } from "@/hooks/useStoredValue";
 import {
   addConversation,
@@ -23,6 +23,8 @@ import {
 } from "@/lib/chatWorkspace";
 import { KEYS } from "@/lib/storage";
 import type { StudyMode } from "@/lib/studyMode";
+import { SpeechToolbar } from "@/components/SpeechToolbar";
+import { DEFAULT_SPEECH_PREFERENCES, speakText, stopSpeech, type SpeechPreferences } from "@/lib/speech";
 import { StarburstLogo } from "@/components/StarburstLogo";
 import { MemoAIMessage, MemoUserMessage, MemoStreamingAIMessage } from "@/components/TutorMessages";
 
@@ -35,9 +37,7 @@ type AITutorProps = {
   major: SavedMajor;
   courses: SavedCourse[];
   activeCourseCode?: string | null;
-  onActiveCourseChange?: (courseCode: string) => void;
 };
-type Star = { id: number; x: number; y: number };
 type Toast = { id: string; msg: string; type: "success" | "error" };
 type ChatListProps = {
   activeConversation?: ChatConversation;
@@ -56,9 +56,6 @@ type ChatListProps = {
   onSubmitRename: () => void;
 };
 type SidebarContentProps = ChatListProps & {
-  courses: SavedCourse[];
-  selectedCourse: SavedCourse | null;
-  onChooseCourse: (c: SavedCourse) => void;
   onClose?: () => void;
 };
 
@@ -373,25 +370,7 @@ function ChatList({
 
 /* ── sidebar content ────────────────────────────────────────────── */
 function SidebarContent(props: SidebarContentProps) {
-const { courses, selectedCourse, onChooseCourse, onClose, ...chatListProps } = props;
-const [pickerOpen, setPickerOpen] = useState(false);
-  const [glowing, setGlowing] = useState(false);
-  const [stars, setStars] = useState<Star[]>([]);
-
-  useEffect(() => {
-    const glow = () => {
-      setGlowing(true);
-      setStars(Array.from({ length: 6 }, (_, i) => ({
-        id: i,
-        x: 12 + 76 * Math.cos(i * Math.PI * 2 / 6),
-        y: 12 + 76 * Math.sin(i * Math.PI * 2 / 6),
-      })));
-      setTimeout(() => { setGlowing(false); setStars([]); }, 2000);
-    };
-    const a = setTimeout(glow, 3000);
-    const b = setInterval(glow, 40000);
-    return () => { clearTimeout(a); clearInterval(b); };
-  }, []);
+  const { onClose, ...chatListProps } = props;
 
   return (
     <div className="flex h-full flex-col">
@@ -417,65 +396,19 @@ const [pickerOpen, setPickerOpen] = useState(false);
       <div className="flex-1 overflow-y-auto py-3">
         <ChatList {...chatListProps} />
       </div>
-
-      {/* course picker footer */}
-      <div className="relative shrink-0 border-t border-[var(--app-border)] p-3">
-        {stars.map(s => (
-          <span key={s.id} className="pointer-events-none absolute text-[11px]"
-            style={{ left: `${s.x}%`, top: `${s.y}%`, animation: "star-ping .9s ease-out forwards", animationDelay: `${s.id * 55}ms` }}>✨</span>
-        ))}
-
-        {/* picker panel */}
-        <div
-          className="absolute bottom-full left-2 right-2 overflow-auto rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface)] shadow-2xl"
-          style={{
-            maxHeight: 240,
-            transform: pickerOpen ? "translateY(0) scale(1)" : "translateY(10px) scale(.97)",
-            opacity: pickerOpen ? 1 : 0,
-            pointerEvents: pickerOpen ? "auto" : "none",
-            transition: pickerOpen
-              ? "transform .32s cubic-bezier(.34,1.56,.64,1),opacity .2s ease"
-              : "transform .18s ease-in,opacity .15s ease",
-          }}
-        >
-          <div className="p-3 space-y-1">
-            <p className="mb-2 px-1 text-[11px] font-semibold uppercase tracking-widest text-[var(--app-muted)]">Your Courses</p>
-            {courses.map(c => (
-              <button key={c.code} type="button"
-                onClick={() => { onChooseCourse(c); setPickerOpen(false); }}
-                className={`w-full rounded-xl px-3 py-2.5 text-left transition ${selectedCourse?.code === c.code ? "bg-[var(--app-surface-strong)]" : "hover:bg-[var(--app-surface-muted)]"}`}>
-                <span className="block font-mono text-xs font-bold" style={{ color: c.color }}>{c.code}</span>
-                <span className="block truncate text-xs text-[var(--app-text)]">{c.name}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <button type="button" onClick={() => setPickerOpen(v => !v)}
-          className="w-full rounded-2xl px-3 py-2.5 text-left transition-all duration-300"
-          style={{
-            background: glowing ? "rgba(247,147,30,.07)" : "var(--app-surface-muted)",
-            border: `1px solid ${glowing ? "#F7931E" : "transparent"}`,
-            boxShadow: glowing ? "0 0 0 3px rgba(247,147,30,.2),0 0 18px rgba(255,107,53,.15)" : "none",
-            transform: glowing ? "scale(1.03)" : "scale(1)",
-          }}>
-          <p className="text-[11px] font-semibold uppercase tracking-widest text-[var(--app-muted)]">{pickerOpen ? "Close" : "Switch course"}</p>
-          <p className="mt-0.5 truncate font-mono text-xs font-bold text-[var(--app-text)]">{courses.map(c => c.code).join(" · ") || "—"}</p>
-        </button>
-      </div>
     </div>
   );
 }
 
 /* ── Main ───────────────────────────────────────────────────────── */
-export function AITutor({ major, courses, activeCourseCode, onActiveCourseChange }: AITutorProps) {
+export function AITutor({ major, courses, activeCourseCode }: AITutorProps) {
   const hydrated = useHydrated();
   const [workspace, setWorkspace]    = useStoredValue(KEYS.CHAT_WORKSPACE, EMPTY_CHAT_WORKSPACE);
   const [legacyMsgs]                 = useStoredValue(KEYS.CHAT_HISTORY, EMPTY_MESSAGES);
   const [uploadDraft, setUploadDraft] = useStoredValue<{ text: string; fileName: string }>(KEYS.UPLOAD_DRAFT, { text: "", fileName: "" });
   const [studyMode] = useStoredValue<StudyMode | null>(KEYS.STUDY_MODE, null);
+  const [speechPreferences, setSpeechPreferences] = useStoredValue<SpeechPreferences>(KEYS.SPEECH_PREFERENCES, DEFAULT_SPEECH_PREFERENCES);
 
-  const [selCode, setSelCode]         = useState(() => (courses.find(c => c.code === activeCourseCode) ?? courses[0])?.code ?? "");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileSidebar, setMobileSidebar]       = useState(false);
   const [input, setInput]             = useState("");
@@ -489,7 +422,10 @@ export function AITutor({ major, courses, activeCourseCode, onActiveCourseChange
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [toasts, setToasts]           = useState<Toast[]>([]);
   const [isExtractingPDF, setIsExtractingPDF] = useState(false);
-  const endRef = useRef<HTMLDivElement>(null);
+  const requestAbort = useRef<AbortController | null>(null);
+  const chatScrollRef = useRef<HTMLDivElement>(null);
+  const followLatest = useRef(true);
+  const [showJump, setShowJump] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const [containerHeight, setContainerHeight] = useState<number | null>(null);
 
@@ -516,7 +452,7 @@ export function AITutor({ major, courses, activeCourseCode, onActiveCourseChange
     setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 2200);
   }, []);
 
-  const sel    = courses.find(c => c.code === selCode) ?? courses[0] ?? null;
+  const sel    = courses.find(c => c.code === activeCourseCode) ?? courses[0] ?? null;
   const convs  = sel ? getCourseConversations(workspace, sel.code) : [];
   const aConvId = sel ? workspace.activeByCourse[sel.code] : undefined;
   const aConv   = aConvId ? workspace.conversationsById[aConvId] : undefined;
@@ -535,17 +471,33 @@ export function AITutor({ major, courses, activeCourseCode, onActiveCourseChange
     if (c !== workspace) setWorkspace(c);
   }, [hydrated, sel, setWorkspace, workspace]);
 
-  useEffect(() => {
-    endRef.current?.scrollIntoView({ behavior: "smooth" });
+  useLayoutEffect(() => {
+    const element = chatScrollRef.current;
+    if (element && followLatest.current) element.scrollTop = element.scrollHeight;
   }, [msgs, loading, streamingContent]);
 
-  useEffect(() => () => {
-    if (typeof window !== "undefined") window.speechSynthesis?.cancel();
-  }, []);
+  useEffect(() => () => { stopSpeech(); requestAbort.current?.abort(); }, []);
 
-  const chooseCourse  = (c: SavedCourse) => { setSelCode(c.code); setInput(""); setMobileSidebar(false); onActiveCourseChange?.(c.code); };
-  const startNewChat  = () => { if (!sel) return; setWorkspace(cur => addConversation(cur, createConversation(sel, major))); setInput(""); setMobileSidebar(false); };
-  const selectConv    = (id: string) => { setWorkspace(cur => touchConversation(cur, id)); setInput(""); setMobileSidebar(false); };
+  const listenToReply = useCallback((msg: ChatMessage) => {
+    speakText(msg.content, speechPreferences, msg.id);
+  }, [speechPreferences]);
+
+  const handleChatScroll = () => {
+    const element = chatScrollRef.current;
+    if (!element) return;
+    const nearBottom = element.scrollHeight - element.scrollTop - element.clientHeight <= 80;
+    followLatest.current = nearBottom;
+    setShowJump(!nearBottom);
+  };
+  const jumpToLatest = () => {
+    followLatest.current = true;
+    const element = chatScrollRef.current;
+    if (element) element.scrollTop = element.scrollHeight;
+    setShowJump(false);
+  };
+
+  const startNewChat  = () => { if (!sel) return; requestAbort.current?.abort(); stopSpeech(); followLatest.current = true; setShowJump(false); setWorkspace(cur => addConversation(cur, createConversation(sel, major))); setInput(""); setMobileSidebar(false); };
+  const selectConv    = (id: string) => { requestAbort.current?.abort(); stopSpeech(); followLatest.current = true; setShowJump(false); setWorkspace(cur => touchConversation(cur, id)); setInput(""); setMobileSidebar(false); };
   const beginRename   = (conv: ChatConversation) => { setEditingConvId(conv.id); setEditingTitle(conv.title); };
   const submitRename  = () => {
     if (!editingConvId) return;
@@ -565,6 +517,11 @@ export function AITutor({ major, courses, activeCourseCode, onActiveCourseChange
     const text = (overrideMsg ?? input).trim();
     if (!text) return;
 
+    // Read the position before adding text, including a scroll event still pending in the browser.
+    handleChatScroll();
+    stopSpeech();
+    const controller = new AbortController();
+    requestAbort.current = controller;
     const wc   = ensureConversationForMessage(workspace, sel, major, text);
     const prev = wc.workspace.conversationsById[wc.conversationId]?.messages ?? EMPTY_MESSAGES;
     const uMsg = createChatMessage("user", text);
@@ -575,6 +532,7 @@ export function AITutor({ major, courses, activeCourseCode, onActiveCourseChange
     try {
       const res = await fetch("/api/tutor", {
         method: "POST",
+        signal: controller.signal,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           message: uploadDraft.text ? `Based on:\n\n${uploadDraft.text}\n\n${text}` : text,
@@ -607,21 +565,18 @@ export function AITutor({ major, courses, activeCourseCode, onActiveCourseChange
       setStreamingContent(fullText);
 
       const aiMsg = createChatMessage("ai", fullText || "Something went wrong. Please try again.");
-      if (studyMode === "audio" && fullText && "speechSynthesis" in window) {
-        window.speechSynthesis.cancel();
-        const utterance = new SpeechSynthesisUtterance(fullText);
-        utterance.lang = "en-US";
-        utterance.rate = 1;
-        utterance.voice = window.speechSynthesis.getVoices().find((voice) => voice.lang.startsWith("en")) ?? null;
-        window.speechSynthesis.speak(utterance);
+      if (studyMode === "audio" && speechPreferences.autoplay && fullText) {
+        speakText(fullText, speechPreferences, aiMsg.id);
       }
       setNewMsgId(aiMsg.id); setTimeout(() => setNewMsgId(null), 700);
       setWorkspace(cur => appendMessagesToConversation(cur, wc.conversationId, [aiMsg]));
     } catch {
+      if (controller.signal.aborted) return;
       if (pendingFrame) cancelAnimationFrame(pendingFrame);
       const errMsg = createChatMessage("ai", "Failed to get a response. Please try again.");
       setWorkspace(cur => appendMessagesToConversation(cur, wc.conversationId, [errMsg]));
     } finally {
+      if (pendingFrame) cancelAnimationFrame(pendingFrame);
       setStreamingContent("");
       setOrbitsLeaving(true); setTimeout(() => { setOrbitsLeaving(false); }, 350);
       setLoading(false);
@@ -671,8 +626,6 @@ export function AITutor({ major, courses, activeCourseCode, onActiveCourseChange
   };
 
   const sidebarProps: SidebarContentProps = {
-    courses, selectedCourse: sel,
-    onChooseCourse: chooseCourse,
     activeConversation: aConv, conversationGroups: groups,
     editingConvId, editingTitle, selectedCourseCode: sel?.code ?? "",
     confirmDeleteId,
@@ -735,6 +688,8 @@ export function AITutor({ major, courses, activeCourseCode, onActiveCourseChange
           )}
         </div>
 
+        <div className="flex flex-wrap gap-2 px-3 pb-2"><SpeechToolbar preferences={speechPreferences} onChange={setSpeechPreferences} /></div>
+
         {!hasMessages ? (
           /* ── empty state ───────────────────────────────────── */
           <div className="flex flex-1 flex-col items-center justify-center px-6 pb-6">
@@ -770,12 +725,13 @@ export function AITutor({ major, courses, activeCourseCode, onActiveCourseChange
         ) : (
           /* ── chat area ────────────────────────────────────── */
           <>
-            <div className="flex-1 min-h-0 overflow-y-auto">
+            <div className="relative flex-1 min-h-0">
+            <div ref={chatScrollRef} onScroll={handleChatScroll} className="h-full overflow-y-auto" style={{ overflowAnchor: "none" }}>
               <div className="py-4">
                 {msgs.map(msg =>
                   msg.role === "user"
                     ? <MemoUserMessage key={msg.id} msg={msg} isNew={msg.id === newMsgId} />
-                    : <MemoAIMessage key={msg.id} msg={msg} isNew={msg.id === newMsgId} />
+                    : <MemoAIMessage key={msg.id} msg={msg} isNew={msg.id === newMsgId} onListen={listenToReply} />
                 )}
                 {/* streaming content replaces the loader once first chunk arrives */}
                 {loading && streamingContent && (
@@ -783,8 +739,10 @@ export function AITutor({ major, courses, activeCourseCode, onActiveCourseChange
                 )}
                 {loading && !streamingContent && <OrbitalLoader leaving={false} />}
                 {orbitsLeaving && !loading && <OrbitalLoader leaving={true} />}
-                <div ref={endRef} />
               </div>
+            </div>
+
+            {showJump && <button type="button" onClick={jumpToLatest} className="absolute bottom-3 left-1/2 -translate-x-1/2 rounded-full border border-[var(--app-border)] bg-[var(--app-surface)] px-4 py-2 text-xs font-semibold shadow-lg">Jump to latest ↓</button>}
             </div>
 
             <div className="shrink-0 border-t border-[var(--app-border)] px-4 py-4" style={{ background: "var(--app-bg)" }}>

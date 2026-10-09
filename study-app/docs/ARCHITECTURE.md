@@ -16,4 +16,6 @@
 
 Current learning-data flow: the server layout reads profile, courses, notes, and saved work from Supabase → the client renders that snapshot before hydration → `lib/storage.ts` keeps a fast account-scoped cache → the account bridge sends local edits to `user_app_state`, whose database trigger updates normalized tables. Remote normalized rows win on the next load unless a newer local edit is pending. AI requests follow the authenticated quota path in `app/api/tutor/route.ts`.
 
-The study style is read from `profiles` during server/browser state load. A choice is written directly to that profile and cached locally. The tutor API reads the authenticated profile before building a general chat prompt. Audio mode also speaks completed chat replies in the browser; the text remains visible.
+The study style is read from `profiles` during server/browser state load. A choice is written directly to that profile and cached locally. The tutor API reads the authenticated profile before building a general chat prompt. Browser playback is handled exclusively by `lib/speech.ts`: replies have Listen controls and Audio autoplay is opt-in. Voice, rate, and autoplay use the existing account-scoped speech preference key. The text remains visible.
+
+Course selection flows through `hooks/useCourseSelection.ts`: a valid URL course wins, then the saved course, then the first saved course. `CourseSwitcher` renders that selection; workspaces receive it as a prop and remount on course changes. Code eligibility is guarded both when navigating and when loading a direct URL.

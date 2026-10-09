@@ -7,6 +7,7 @@ import { LearnThisModal } from "@/components/LearnThisModal";
 import { useStoredValue } from "@/hooks/useStoredValue";
 import { KEYS } from "@/lib/storage";
 import type { SavedCourse, SavedMajor } from "@/lib/chatWorkspace";
+import { DEFAULT_SPEECH_PREFERENCES, listenForChoice, speakText, stopSpeech, type SpeechPreferences } from "@/lib/speech";
 import type { StudyMode } from "@/lib/studyMode";
 import { addQuizAttempt, createQuizAttempt, deleteQuizAttempt, EMPTY_QUIZ_STORE, formatQuizDate, getCourseQuizAttempts, groupQuizAttemptsByDate, normalizeQuizStore, type QuizAttempt, type QuizQuestionResult, type QuizStore } from "@/lib/quizzes";
 
@@ -182,6 +183,7 @@ function QuizReviewScreen({
 
 export function QuizzesTab({ major, courses, activeCourseCode }: { major: SavedMajor; courses: SavedCourse[]; activeCourseCode?: string | null }) {
   const [studyMode] = useStoredValue<StudyMode | null>(KEYS.STUDY_MODE, null);
+  const [speechPreferences] = useStoredValue<SpeechPreferences>(KEYS.SPEECH_PREFERENCES, DEFAULT_SPEECH_PREFERENCES);
   const [audioQuiz, setAudioQuiz] = useState(false);
   const [audioIndex, setAudioIndex] = useState(0);
   const [voiceStatus, setVoiceStatus] = useState("");
@@ -189,7 +191,6 @@ export function QuizzesTab({ major, courses, activeCourseCode }: { major: SavedM
   const [rawStore, setRawStore] = useStoredValue<QuizStore>(KEYS.QUIZ_RESULTS, EMPTY_QUIZ_STORE);
   const store = normalizeQuizStore(rawStore);
 
-  const [selectedCode, setSelectedCode] = useState(activeCourseCode ?? courses[0]?.code ?? "");
   const [topic, setTopic] = useState("");
   const [loading, setLoading] = useState(false);
   const [progressLabel, setProgressLabel] = useState("");
@@ -203,17 +204,14 @@ export function QuizzesTab({ major, courses, activeCourseCode }: { major: SavedM
 
   useEffect(() => () => {
     recognitionRef.current?.stop();
-    if (typeof window !== "undefined") window.speechSynthesis?.cancel();
+    stopSpeech();
   }, []);
 
   const speakQuestion = (index: number, quizQuestions = questions) => {
     const question = quizQuestions[index];
-    if (!question || !("speechSynthesis" in window)) return;
-    window.speechSynthesis.cancel();
+    if (!question) return;
     const options = Object.entries(question.options).map(([letter, value]) => `Option ${letter}: ${value}`).join(". ");
-    const utterance = new SpeechSynthesisUtterance(`Question ${index + 1}. ${question.question}. ${options}`);
-    utterance.lang = "en-US";
-    window.speechSynthesis.speak(utterance);
+    speakText(`Question ${index + 1}. ${question.question}. ${options}`, speechPreferences);
   };
 
   const answerAudioQuestion = (letter: string) => {
@@ -227,34 +225,14 @@ export function QuizzesTab({ major, courses, activeCourseCode }: { major: SavedM
   };
 
   const listenForAnswer = () => {
-    type Recognition = { lang: string; onresult: ((event: { results: ArrayLike<ArrayLike<{ transcript: string }>> }) => void) | null; onerror: (() => void) | null; onend: (() => void) | null; start: () => void; stop: () => void };
-    const voiceWindow = window as typeof window & { SpeechRecognition?: new () => Recognition; webkitSpeechRecognition?: new () => Recognition };
-    const Constructor = voiceWindow.SpeechRecognition ?? voiceWindow.webkitSpeechRecognition;
-    if (!Constructor) { setVoiceStatus("Voice answers are unavailable in this browser. Tap an answer instead."); return; }
     recognitionRef.current?.stop();
-    window.speechSynthesis?.cancel();
-    const recognition = new Constructor();
-    recognition.lang = "en-US";
-    recognition.onresult = (event) => {
-      const heard = event.results[0]?.[0]?.transcript.trim().toLowerCase() ?? "";
-      const words: Record<string, string> = { a: "A", ay: "A", b: "B", bee: "B", c: "C", see: "C", d: "D", dee: "D" };
-      const letter = words[heard.replace(/[.!,]/g, "")];
-      if (letter && questions[audioIndex]?.options[letter]) answerAudioQuestion(letter);
-      else setVoiceStatus(`Heard “${heard}”. Say A, B, C, or D, or tap an answer.`);
-    };
-    recognition.onerror = () => setVoiceStatus("Voice input stopped. Tap an answer or try again.");
-    recognition.onend = () => { recognitionRef.current = null; };
-    recognitionRef.current = recognition;
-    setVoiceStatus("Listening for A, B, C, or D…");
-    try {
-      recognition.start();
-    } catch {
-      recognitionRef.current = null;
-      setVoiceStatus("Voice input couldn't start. Tap an answer instead.");
-    }
+    recognitionRef.current = listenForChoice((letter) => {
+      if (questions[audioIndex]?.options[letter]) answerAudioQuestion(letter);
+      else setVoiceStatus("That option is unavailable. Tap an answer instead.");
+    }, setVoiceStatus);
   };
 
-  const selectedCourse = courses.find((course) => course.code === selectedCode) ?? courses[0] ?? null;
+  const selectedCourse = courses.find((course) => course.code === activeCourseCode) ?? courses[0] ?? null;
 
   const freshResults: QuizQuestionResult[] = questions.map((question, index) => ({
     question: question.question,
@@ -266,7 +244,7 @@ export function QuizzesTab({ major, courses, activeCourseCode }: { major: SavedM
   const submitQuiz = () => {
     if (!selectedCourse) return;
     recognitionRef.current?.stop();
-    window.speechSynthesis?.cancel();
+    stopSpeech();
     const attempt = createQuizAttempt(selectedCourse, major, topic, freshResults);
     setRawStore((prev) => addQuizAttempt(normalizeQuizStore(prev), attempt));
     setSubmitted(true);
@@ -288,7 +266,7 @@ export function QuizzesTab({ major, courses, activeCourseCode }: { major: SavedM
 
   const startNewQuiz = () => {
     recognitionRef.current?.stop();
-    window.speechSynthesis?.cancel();
+    stopSpeech();
     setAudioQuiz(false);
     setVoiceStatus("");
     setQuestions([]);
@@ -413,7 +391,7 @@ export function QuizzesTab({ major, courses, activeCourseCode }: { major: SavedM
               <span className="mr-auto text-xs font-medium text-[var(--app-text)]">Question {audioIndex + 1} of {questions.length}</span>
               <button type="button" onClick={() => speakQuestion(audioIndex)} className="rounded-lg border border-[var(--app-border)] px-3 py-2 text-xs font-semibold">Replay</button>
               <button type="button" onClick={listenForAnswer} className="rounded-lg border border-[var(--app-border)] px-3 py-2 text-xs font-semibold">Answer by voice</button>
-              <button type="button" onClick={() => { recognitionRef.current?.stop(); window.speechSynthesis?.cancel(); setAudioQuiz(false); }} className="rounded-lg px-3 py-2 text-xs font-semibold">Stop</button>
+              <button type="button" onClick={() => { recognitionRef.current?.stop(); stopSpeech(); setAudioQuiz(false); }} className="rounded-lg px-3 py-2 text-xs font-semibold">Stop</button>
             </div>}
           {voiceStatus && <p role="status" className="mt-2 text-xs text-[var(--app-muted-strong)]">{voiceStatus}</p>}
         </div>}
@@ -500,27 +478,6 @@ export function QuizzesTab({ major, courses, activeCourseCode }: { major: SavedM
   return (
     <div className="flex gap-6 flex-col lg:flex-row" style={{ minHeight: "calc(100dvh - 260px)" }}>
       <div className="lg:w-[340px] shrink-0 space-y-4">
-        <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface)] p-4 space-y-3">
-          <p className="text-xs font-semibold uppercase tracking-wide text-[var(--app-muted)]">Course</p>
-          <div className="flex flex-wrap gap-2">
-            {courses.map((course) => (
-              <button
-                key={course.code}
-                type="button"
-                onClick={() => setSelectedCode(course.code)}
-                className="rounded-xl border px-3 py-1.5 text-xs font-semibold transition"
-                style={{
-                  background: course.code === selectedCode ? course.color : "var(--app-surface-muted)",
-                  color: course.code === selectedCode ? "#fff" : "var(--app-muted)",
-                  borderColor: course.code === selectedCode ? course.color : "var(--app-border)",
-                }}
-              >
-                {course.code}
-              </button>
-            ))}
-          </div>
-        </div>
-
         <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface)] p-4 space-y-3">
           <p className="text-xs font-semibold uppercase tracking-wide text-[var(--app-muted)]">Topic (optional)</p>
           <input

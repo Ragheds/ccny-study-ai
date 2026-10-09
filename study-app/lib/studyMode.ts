@@ -13,7 +13,7 @@ export function isStudyMode(value: unknown): value is StudyMode {
 export function studyModeInstruction(mode: StudyMode | null): string {
   switch (mode) {
     case "visual":
-      return "Default to a visual teaching style: short lines, labeled steps, simple text diagrams, and clear structure. Describe what a diagram would show when useful.";
+      return "Use short structured steps, tables when helpful, and plain descriptions. Never draw ASCII or text-character graphs, diagrams, or fake plots. Describe axes, points, and relationships in words; real graphs will be available in Phase 8.";
     case "audio":
       return "Use short, natural spoken sentences. Avoid markdown, tables, and long formulas read symbol by symbol. Make the explanation work when heard aloud.";
     case "active":

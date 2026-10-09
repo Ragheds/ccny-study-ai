@@ -16,6 +16,8 @@ export const KEYS = {
   PROGRESS: "ccny_progress",
   STUDY_MODE: "ccny_study_mode",
   STUDY_MODE_DISMISSED: "ccny_study_mode_dismissed",
+  SELECTED_COURSE: "ccny_selected_course",
+  SPEECH_PREFERENCES: "ccny_speech_preferences",
 };
 
 export const STORAGE_CHANGE_EVENT = "ccny-storage-change";
@@ -37,6 +39,8 @@ export const ACCOUNT_SCOPED_STORAGE_KEYS = [
   KEYS.PROGRESS,
   KEYS.STUDY_MODE,
   KEYS.STUDY_MODE_DISMISSED,
+  KEYS.SELECTED_COURSE,
+  KEYS.SPEECH_PREFERENCES,
 ] as const;
 
 const ACCOUNT_SCOPED_KEYS = new Set<string>(ACCOUNT_SCOPED_STORAGE_KEYS);
