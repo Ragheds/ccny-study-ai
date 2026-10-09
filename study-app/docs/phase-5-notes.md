@@ -10,7 +10,10 @@ Read `docs/ARCHITECTURE.md` for the data flow, then the files listed above. Serv
 
 ## How to test
 
-1. Apply migration 7 in development. Select a saved course and open Make a pack from class material. Paste a short lecture excerpt, then test one text PDF. Free limits: 8000 extracted characters/one upload per UTC day; Pro: 12000/five. Oversized and scanned PDFs must fail clearly without saving a ready pack.\n2. Include a sentence saying ignore previous instructions in the source: outputs must still be source-grounded cards/quiz/notes. Compare every correct answer and note against the cited chunks. Short sources may produce fewer cards/questions.\n3. Download the pack, enable airplane mode, reopen /offline and study. Verify another account cannot GET/delete/sync it. Delete from account while online, then sync a second device and confirm its cached copy is removed. Copies on disconnected devices cannot be remotely erased until reconnecting.\n4. node --test tests/grounding.test.mjs passes. Synthetic one-page PDF text extraction passed locally. Real lecture PDFs, AI generation, daily upload caps in Supabase, and real-phone offline playback were not tested.
+1. Apply migration 7 in development. Select a saved course and open Make a pack from class material. Paste a short lecture excerpt, then test one text PDF. Free limits: 8000 extracted characters/one upload per UTC day; Pro: 12000/five. Oversized and scanned PDFs must fail clearly without saving a ready pack.
+2. Include a sentence saying ignore previous instructions in the source: outputs must still be source-grounded cards/quiz/notes. Compare every correct answer and note against the cited chunks. Short sources may produce fewer cards/questions.
+3. Download the pack, enable airplane mode, reopen /offline and study. Verify another account cannot GET/delete/sync it. Delete from account while online, then sync a second device and confirm its cached copy is removed. Copies on disconnected devices cannot be remotely erased until reconnecting.
+4. node --test tests/grounding.test.mjs passes. Synthetic one-page PDF text extraction passed locally. Real lecture PDFs, AI generation, daily upload caps in Supabase, and real-phone offline playback were not tested.
 
 ## Verification and limits
 

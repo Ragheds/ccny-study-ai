@@ -10,7 +10,11 @@ Read `docs/ARCHITECTURE.md` for the data flow, then the files listed above. Serv
 
 ## How to test
 
-1. In a development Supabase project, redeem a beta invite and save CSC 103 plus MATH 201. Select CSC, wait for sync, then open Code. With higher tiers disabled, expect the budget message without an AI charge.\n2. After setting a budget and enabling the flag in development, ask for a hint. Add a 20-character attempt, then request a solution. Verify ai_usage records code and the configured model.\n3. Change to MATH; Code disappears and a direct ?tab=code renders Chat. Forge expectedCourse=CSC while saved selection is MATH: expect 403. A stale supported selection must return 409.\n4. Free accounts get 403; exceed codePerDay (currently 10 Pro) and expect 429. All usage also obeys daily token/request and minute caps.\n5. Switch courses and accounts: saved replies must remain scoped. Unit tests for prefix eligibility and saved selection pass. No authenticated or stronger-model request was made.
+1. In a development Supabase project, redeem a beta invite and save CSC 103 plus MATH 201. Select CSC, wait for sync, then open Code. With higher tiers disabled, expect the budget message without an AI charge.
+2. After setting a budget and enabling the flag in development, ask for a hint. Add a 20-character attempt, then request a solution. Verify ai_usage records code and the configured model.
+3. Change to MATH; Code disappears and a direct ?tab=code renders Chat. Forge expectedCourse=CSC while saved selection is MATH: expect 403. A stale supported selection must return 409.
+4. Free accounts get 403; exceed codePerDay (currently 10 Pro) and expect 429. All usage also obeys daily token/request and minute caps.
+5. Switch courses and accounts: saved replies must remain scoped. Unit tests for prefix eligibility and saved selection pass. No authenticated or stronger-model request was made.
 
 ## Verification and limits
 

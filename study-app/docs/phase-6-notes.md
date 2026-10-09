@@ -10,7 +10,9 @@ Read `docs/ARCHITECTURE.md` for the data flow, then the files listed above. Serv
 
 ## How to test
 
-1. Apply migration 8 in development. Configure your own ADMIN_USER_IDS. Open /beta as owner; open it as another user and verify 404. Enable counters, visit study home and download a pack; check the session and pack_download rows. Leave counters off on another account and confirm no automatic events.\n2. Send a short test feedback; verify it appears in study_feedback. Try six in one day; the sixth must be rejected. Simulate a client rendering failure, verify friendly retry/offline link and only a category counter when opted in.\n3. Review Privacy and Terms, add owner contact and retention policy, test account deletion in development, then follow BETA-INVITE.md. No invitations were sent, no provider monitoring account was created, and weekly student activity/retention has not been measured. Metrics are opt-in hourly aggregates, not all users or exact pack-download counts.
+1. Apply migration 8 in development. Configure your own ADMIN_USER_IDS. Open /beta as owner; open it as another user and verify 404. Enable counters, visit study home and download a pack; check the session and pack_download rows. Leave counters off on another account and confirm no automatic events.
+2. Send a short test feedback; verify it appears in study_feedback. Try six in one day; the sixth must be rejected. Simulate a client rendering failure, verify friendly retry/offline link and only a category counter when opted in.
+3. Review Privacy and Terms, add owner contact and retention policy, test account deletion in development, then follow BETA-INVITE.md. No invitations were sent, no provider monitoring account was created, and weekly student activity/retention has not been measured. Metrics are opt-in hourly aggregates, not all users or exact pack-download counts.
 
 ## Verification and limits
 

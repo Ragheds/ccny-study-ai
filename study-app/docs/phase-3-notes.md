@@ -10,7 +10,9 @@ Read `docs/ARCHITECTURE.md` for the data flow, then the files listed above. Serv
 
 ## How to test
 
-1. Apply migration 5 on a development Supabase project. Add development/test keys from .env.example. Open /plans signed in. Redeem an invite twice; the second attempt must fail. Verify a Free account cannot edit its subscription directly.\n2. Stripe CLI: stripe listen --forward-to localhost:3000/api/billing/webhook. Set its test signing secret locally. Buy with test card 4242 4242 4242 4242, future expiry, any CVC; verify subscription active. Cancel in Stripe test dashboard, replay and reorder events; expiry must revoke Pro. Never use live keys.\n3. With a separate development AI key, ask one tiny question, confirm one usage row and cost estimate. Send requests up to minute/daily quota and verify friendly 429. Failed model calls must not use the daily allowance. Paid tests were not run.
+1. Apply migration 5 on a development Supabase project. Add development/test keys from .env.example. Open /plans signed in. Redeem an invite twice; the second attempt must fail. Verify a Free account cannot edit its subscription directly.
+2. Stripe CLI: stripe listen --forward-to localhost:3000/api/billing/webhook. Set its test signing secret locally. Buy with test card 4242 4242 4242 4242, future expiry, any CVC; verify subscription active. Cancel in Stripe test dashboard, replay and reorder events; expiry must revoke Pro. Never use live keys.
+3. With a separate development AI key, ask one tiny question, confirm one usage row and cost estimate. Send requests up to minute/daily quota and verify friendly 429. Failed model calls must not use the daily allowance. Paid tests were not run.
 
 ## Verification and limits
 

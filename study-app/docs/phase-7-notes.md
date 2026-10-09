@@ -10,7 +10,10 @@ Read `docs/ARCHITECTURE.md` for the data flow, then the files listed above. Serv
 
 ## How to test
 
-1. Ask a development tutor question, complete the reply, open Notes and check Notes from your tutor. The text must be an actual excerpt of the reply, with its source ID, not newly generated facts. Existing manual notes must remain.\n2. Edit, pin, reload and sign in on a second device. Delete one taught note and confirm it stays deleted. Very long replies are labeled excerpts and capped at 5000 characters.\n3. Click Turn into flashcards or Turn into a quiz online. It uses the material upload allowance and creates a private source-grounded pack; check its citations, then study it offline. A note shorter than 80 characters cannot produce a pack.\n4. node --test tests/auto-notes.test.mjs passes for exact source preservation, manual-note preservation and deduplication. Authenticated AI, cross-device sync and phone behavior remain owner tests. No new migration is required for this JSON data addition.
+1. Ask a development tutor question, complete the reply, open Notes and check Notes from your tutor. The text must be an actual excerpt of the reply, with its source ID, not newly generated facts. Existing manual notes must remain.
+2. Edit, pin, reload and sign in on a second device. Delete one taught note and confirm it stays deleted. Very long replies are labeled excerpts and capped at 5000 characters.
+3. Click Turn into flashcards or Turn into a quiz online. It uses the material upload allowance and creates a private source-grounded pack; check its citations, then study it offline. A note shorter than 80 characters cannot produce a pack.
+4. node --test tests/auto-notes.test.mjs passes for exact source preservation, manual-note preservation and deduplication. Authenticated AI, cross-device sync and phone behavior remain owner tests. No new migration is required for this JSON data addition.
 
 ## Verification and limits
 
