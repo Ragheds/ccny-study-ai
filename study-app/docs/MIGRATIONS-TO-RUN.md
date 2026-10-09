@@ -23,3 +23,5 @@ Never commit the actual invite or expose the invites table. Each account redeems
 6. `202610090006_phase4_offline.sql` — private packs, device edits, atomic pack course caps and authenticated sync. Verify cross-account pack reads and sync fail.
 
 7. `202610090007_phase5_material.sql` — private source chunks and pack provenance. Original PDF files are not retained.
+
+8. `202610090008_phase6_beta.sql` — opt-in counters and owner feedback. Review retention before beta; owner-only aggregate RPC has no authenticated grant.

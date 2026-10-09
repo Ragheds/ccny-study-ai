@@ -17,6 +17,7 @@ export const KEYS = {
   STUDY_MODE: "ccny_study_mode",
   STUDY_MODE_DISMISSED: "ccny_study_mode_dismissed",
   SELECTED_COURSE: "ccny_selected_course",
+  ANALYTICS_CONSENT: "ccny_analytics_consent",
   SPEECH_PREFERENCES: "ccny_speech_preferences",
 };
 
@@ -41,6 +42,7 @@ export const ACCOUNT_SCOPED_STORAGE_KEYS = [
   KEYS.STUDY_MODE_DISMISSED,
   KEYS.SELECTED_COURSE,
   KEYS.SPEECH_PREFERENCES,
+  KEYS.ANALYTICS_CONSENT,
 ] as const;
 
 const ACCOUNT_SCOPED_KEYS = new Set<string>(ACCOUNT_SCOPED_STORAGE_KEYS);

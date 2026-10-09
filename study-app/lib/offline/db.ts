@@ -1,3 +1,4 @@
+import { trackEvent } from "@/lib/telemetry";
 import { openDB } from "idb";
 import type { StudyPack } from "@/lib/packs";
 import { getActiveAccountId } from "@/lib/storage";
@@ -27,6 +28,7 @@ export async function downloadPack(pack: StudyPack) {
     throw new Error("Switch back to the pack's account.");
   const db = await database();
   await db.put("packs", pack);
+  trackEvent("pack_download");
   window.dispatchEvent(new Event("packs-changed"));
 }
 export async function removeDevicePack(id: string) {

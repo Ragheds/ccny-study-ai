@@ -1,3 +1,4 @@
+import { BetaTools } from "@/components/BetaTools";
 import { AppSidebar } from "@/components/AppSidebar";
 import { MobileAppNav } from "@/components/MobileAppNav";
 import { AppDataProvider } from "@/components/AppDataProvider";
@@ -16,7 +17,7 @@ export default async function AppLayout({
     <AppDataProvider initial={initial}>
       <div className="flex h-dvh overflow-hidden" style={{ background: "var(--app-bg)" }}>
         <AppSidebar />
-        <main className="min-h-0 min-w-0 flex-1 overflow-y-auto pb-16 md:pb-0">{children}</main>
+        <main className="min-h-0 min-w-0 flex-1 overflow-y-auto pb-16 md:pb-0">{children}<BetaTools /></main>
         <Suspense><MobileAppNav /></Suspense>
       </div>
     </AppDataProvider>
