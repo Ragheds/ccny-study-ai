@@ -1,3 +1,4 @@
+import { OfflineBridge } from "@/components/OfflineBridge";
 import type { Metadata } from "next";
 import { Inter, Lora, Geist_Mono } from "next/font/google";
 import "./globals.css";
@@ -36,7 +37,7 @@ export default function RootLayout({
       >
         <ThemeProvider>
           <SupabaseAccountBridge />
-          {children}
+          <OfflineBridge />{children}
         </ThemeProvider>
       </body>
     </html>

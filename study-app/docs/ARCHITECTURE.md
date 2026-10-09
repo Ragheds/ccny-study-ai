@@ -21,3 +21,5 @@ The study style is read from `profiles` during server/browser state load. A choi
 Course selection flows through `hooks/useCourseSelection.ts`: a valid URL course wins, then the saved course, then the first saved course. `CourseSwitcher` renders that selection; workspaces receive it as a prop and remount on course changes. Code eligibility is guarded both when navigating and when loading a direct URL.
 
 - Phase 3: Server-only lib/plans.ts and lib/models.ts replace temporary limits. lib/server/access.ts verifies subscription expiry; /plans offers test checkout and atomic invite redemption. Signed Stripe webhooks are deduplicated and timestamp ordered. AI usage records cost estimates and failed requests release daily reservations.
+
+- Phase 4: lib/offline/db.ts stores account-scoped packs and a durable notes/quiz/review queue in IndexedDB. /offline is a static replay screen; Serwist precaches it and assets but never authenticated HTML/API responses. /api/packs authenticates, enforces atomic per-plan course caps, prepares 20 cards/10 questions, and reuses existing packs. /api/offline/sync applies idempotent edits with last-write-wins pack notes.

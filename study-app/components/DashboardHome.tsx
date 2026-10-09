@@ -1,4 +1,5 @@
 "use client";
+import { PackDownload } from "@/components/PackDownload";
 
 import Link from "next/link";
 import { useMemo } from "react";
@@ -61,6 +62,7 @@ export function DashboardHome({ major, courses, onOpen, selectedCourseCode }: {
 
   return (
     <div className="mx-auto max-w-6xl space-y-8 px-4 pb-28 pt-6 sm:px-8 sm:pt-8 md:pb-10">
+      <div className="grid gap-3 sm:grid-cols-2">{courses.map(course=><PackDownload key={course.code} courseCode={course.code} />)}</div>
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-[var(--app-accent)]">Study home</p>
@@ -117,7 +119,7 @@ export function DashboardHome({ major, courses, onOpen, selectedCourseCode }: {
                 <button key={course.code} type="button" onClick={() => onOpen("ai", course.code)}
                   className="flex w-full items-center gap-3 rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface)] p-3.5 text-left transition hover:border-[var(--app-border-strong)] hover:bg-[var(--app-surface-muted)] focus-visible:outline-2 focus-visible:outline-[var(--app-accent)]">
                   <span className="h-10 w-1 shrink-0 rounded-full" style={{ background: course.color }} />
-                  <span className="min-w-0 flex-1"><strong className="block truncate text-sm text-[var(--app-text)]">{course.code} · {course.name}</strong><span className="mt-1 block text-xs text-[var(--app-muted)]">Online only · Offline size —</span></span>
+                  <span className="min-w-0 flex-1"><strong className="block truncate text-sm text-[var(--app-text)]">{course.code} · {course.name}</strong><span className="mt-1 block text-xs text-[var(--app-muted)]">Online only · Offline size shown above</span></span>
                   <span className="text-[var(--app-muted)]" aria-hidden="true">→</span>
                 </button>
               ))}
@@ -133,7 +135,7 @@ export function DashboardHome({ major, courses, onOpen, selectedCourseCode }: {
           <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface)] p-5">
             <p className="text-xs font-semibold text-[var(--app-muted-strong)]">Offline readiness</p>
             <p className="mt-3 text-sm font-semibold text-[var(--app-text)]">No course packs downloaded</p>
-            <p className="mt-2 text-xs leading-relaxed text-[var(--app-muted)]">Study packs and download sizes arrive in Phase 4. For now, saved notes on this device may remain available, but AI needs internet.</p>
+            <p className="mt-2 text-xs leading-relaxed text-[var(--app-muted)]">Download your packs above before leaving. For now, saved notes on this device may remain available, but AI needs internet.</p>
           </div>
         </aside>
       </div>
