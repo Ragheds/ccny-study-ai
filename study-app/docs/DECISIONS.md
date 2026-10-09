@@ -15,3 +15,5 @@
 
 - Phase 2 feedback: Keep the URL plus account-scoped saved course as the selection source and remove private workspace course pickers to prevent context drift.
 - Phase 2 feedback: Keep browser speech behind one adapter, queue one sentence at a time, filter novelty voices, and make reply autoplay opt-in. Follow chat growth only within 80px of the bottom; students can explicitly jump to resume following.
+
+- Phase 3: Server-only lib/plans.ts and lib/models.ts replace temporary limits. lib/server/access.ts verifies subscription expiry; /plans offers test checkout and atomic invite redemption. Signed Stripe webhooks are deduplicated and timestamp ordered. AI usage records cost estimates and failed requests release daily reservations.

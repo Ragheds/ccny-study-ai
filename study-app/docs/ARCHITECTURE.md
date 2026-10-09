@@ -9,8 +9,8 @@
 - `components/SupabaseAccountBridge.tsx` and `lib/supabase/appState.ts`: import existing local data once, load normalized remote rows, and save browser changes to Supabase.
 - `lib/supabase/serverStudyState.ts` and `components/AppDataProvider.tsx`: fetch the signed-in student's saved state in the app layout and render it during hydration.
 - `lib/supabase/`: browser, cookie-aware server, and server-only admin clients.
-- `app/api/tutor/route.ts`: authenticates, reserves a database quota, tries free models in order, streams OpenRouter text, and finalizes one usage row.
-- `lib/tutorLimits.ts`: temporary server-enforced free-model quotas.
+- `app/api/tutor/route.ts`: authenticates, reserves a database quota, selects centrally configured models, streams OpenRouter text, and finalizes one usage row.
+- `lib/plans.ts`, `lib/models.ts`, and `lib/server/access.ts`: server-only plans, model tiers, and authenticated entitlements.
 - `supabase/migrations/`: additive database migrations. Phase 1 adds RLS-protected learning tables and a compatibility cache mirror; Phase 2 adds the study style onboarding dismissal flag.
 - `data/`: CCNY major and course catalog.
 
@@ -19,3 +19,5 @@ Current learning-data flow: the server layout reads profile, courses, notes, and
 The study style is read from `profiles` during server/browser state load. A choice is written directly to that profile and cached locally. The tutor API reads the authenticated profile before building a general chat prompt. Browser playback is handled exclusively by `lib/speech.ts`: replies have Listen controls and Audio autoplay is opt-in. Voice, rate, and autoplay use the existing account-scoped speech preference key. The text remains visible.
 
 Course selection flows through `hooks/useCourseSelection.ts`: a valid URL course wins, then the saved course, then the first saved course. `CourseSwitcher` renders that selection; workspaces receive it as a prop and remount on course changes. Code eligibility is guarded both when navigating and when loading a direct URL.
+
+- Phase 3: Server-only lib/plans.ts and lib/models.ts replace temporary limits. lib/server/access.ts verifies subscription expiry; /plans offers test checkout and atomic invite redemption. Signed Stripe webhooks are deduplicated and timestamp ordered. AI usage records cost estimates and failed requests release daily reservations.
