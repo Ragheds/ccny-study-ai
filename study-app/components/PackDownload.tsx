@@ -1,4 +1,5 @@
 "use client";
+import { MaterialUpload } from "@/components/MaterialUpload";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { devicePacks, downloadPack } from "@/lib/offline/db";
@@ -62,6 +63,7 @@ export function PackDownload({ courseCode }: { courseCode: string }) {
       </button>{" "}
       <Link href="/offline">Open packs →</Link>
       <p role="status">{status}</p>
+      <MaterialUpload courseCode={courseCode} />
     </div>
   );
 }

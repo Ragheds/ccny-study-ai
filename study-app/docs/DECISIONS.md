@@ -19,3 +19,5 @@
 - Phase 3: Server-only lib/plans.ts and lib/models.ts replace temporary limits. lib/server/access.ts verifies subscription expiry; /plans offers test checkout and atomic invite redemption. Signed Stripe webhooks are deduplicated and timestamp ordered. AI usage records cost estimates and failed requests release daily reservations.
 
 - Phase 4: lib/offline/db.ts stores account-scoped packs and a durable notes/quiz/review queue in IndexedDB. /offline is a static replay screen; Serwist precaches it and assets but never authenticated HTML/API responses. /api/packs authenticates, enforces atomic per-plan course caps, prepares 20 cards/10 questions, and reuses existing packs. /api/offline/sync applies idempotent edits with last-write-wins pack notes.
+
+- Phase 5: app/api/packs/upload/route.ts extracts PDF text (5 MB maximum) or pasted text, checks server plan limits, chunks it, and generates private packs. lib/material/grounding.ts rejects answers and notes whose exact excerpts are absent from the cited source. Original PDFs are not retained. Source packs download through the same IndexedDB flow and can be deleted from the account.

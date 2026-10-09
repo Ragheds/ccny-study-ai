@@ -29,6 +29,7 @@ export type StudyPack = {
   content: z.infer<typeof PackContent>;
   updated_at: string;
   is_deleted?: boolean;
+  source_chunks?: { id: string; text: string }[];
 };
 export const PACK_PROMPT =
   "Return only JSON with summary, notes, cards (20 front/back objects), quiz (10 question/options array of four strings/answer zero-based index/explanation objects), lessons empty array. Teach the selected CCNY course. Be accurate; say when unsure. No markdown fences.";

@@ -51,7 +51,10 @@ export function OfflineLibrary() {
       const response = await fetch("/api/packs");
       const data = await response.json();
       if (!response.ok) throw Error(data.error);
-      for (const pack of data.packs) await downloadPack(pack);
+      for (const pack of data.packs) {
+        if (pack.is_deleted) await removeDevicePack(pack.id);
+        else await downloadPack(pack);
+      }
       setStatus("Packs downloaded for this account.");
       setPending(await pendingEdits());
     } catch (error) {
@@ -149,6 +152,14 @@ export function OfflineLibrary() {
           <button onClick={saveNotes} className="rounded-lg border p-2">
             Save notes
           </button>
+          <details>
+            <summary>Source excerpts</summary>
+            {current.source_chunks?.map((chunk) => (
+              <p key={chunk.id} className="my-3 whitespace-pre-wrap text-sm">
+                {chunk.id}: {chunk.text}
+              </p>
+            ))}
+          </details>
           <h3>Flashcards</h3>
           {current.content.cards.map((card, index) => (
             <details key={index} className="rounded-xl border p-3">
@@ -207,6 +218,34 @@ export function OfflineLibrary() {
             className="rounded-xl border p-3"
           >
             Remove from this device
+          </button>
+          <button
+            className="rounded-xl border p-3"
+            onClick={async () => {
+              try {
+                if (
+                  !window.confirm(
+                    "Delete this pack and its source material from your account?",
+                  )
+                )
+                  return;
+                const response = await fetch("/api/packs", {
+                  method: "DELETE",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ id: current.id }),
+                });
+                if (!response.ok) throw Error();
+                await removeDevicePack(current.id);
+                setCurrent(null);
+                setStatus(
+                  "Pack removed from your account. Other devices should sync and remove their copy.",
+                );
+              } catch {
+                setStatus("Needs internet to delete from your account.");
+              }
+            }}
+          >
+            Delete from account
           </button>
         </section>
       )}

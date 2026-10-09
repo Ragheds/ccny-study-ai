@@ -17,6 +17,16 @@ export async function POST(request: Request) {
     const raw = await request.text();
     if (raw.length > 50000) throw new StudyError("Edit too large.", 413);
     const edit = Edit.parse(JSON.parse(raw));
+    const { data: pack } = await access.db
+      .from("study_packs")
+      .select("is_deleted")
+      .eq("id", edit.pack_id)
+      .maybeSingle();
+    if (!pack || pack.is_deleted)
+      throw new StudyError(
+        "Pack was deleted. Pending edits were discarded.",
+        410,
+      );
     const { error } = await access.db.rpc("sync_study_edit", {
       p_id: edit.id,
       p_pack: edit.pack_id,

@@ -8,9 +8,10 @@ export async function GET() {
     if (!access) throw new StudyError("Sign in first.", 401);
     const { data, error } = await access.db
       .from("study_packs")
-      .select("id,user_id,course_code,title,content,updated_at")
-      .eq("status", "ready")
-      .eq("is_deleted", false);
+      .select(
+        "id,user_id,course_code,title,content,updated_at,is_deleted,source_chunks",
+      )
+      .eq("status", "ready");
     if (error) throw error;
     return Response.json(
       { packs: data },
@@ -110,10 +111,22 @@ export async function DELETE(request: Request) {
     const access = await studentAccess();
     if (!access) throw new StudyError("Sign in first.", 401);
     const { id } = await request.json();
-    const { error } = await access.db
+    const { data: owned } = await access.db
       .from("study_packs")
-      .update({ is_deleted: true, updated_at: new Date().toISOString() })
-      .eq("id", id);
+      .select("id")
+      .eq("id", id)
+      .maybeSingle();
+    if (!owned) throw new StudyError("Pack not found.", 404);
+    const { error } = await createSupabaseAdminClient()
+      .from("study_packs")
+      .update({
+        is_deleted: true,
+        content: {},
+        source_chunks: [],
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", id)
+      .eq("user_id", access.user.id);
     if (error) throw error;
     return Response.json({ deleted: true });
   } catch (error) {

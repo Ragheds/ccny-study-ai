@@ -21,3 +21,5 @@ values(encode(sha256(convert_to('REPLACE_WITH_A_RANDOM_24_CHARACTER_CODE','UTF8'
 Never commit the actual invite or expose the invites table. Each account redeems once; the database locks redemptions and enforces the usage ceiling. Verify authenticated users can only read their own subscription and cannot write it.
 
 6. `202610090006_phase4_offline.sql` — private packs, device edits, atomic pack course caps and authenticated sync. Verify cross-account pack reads and sync fail.
+
+7. `202610090007_phase5_material.sql` — private source chunks and pack provenance. Original PDF files are not retained.

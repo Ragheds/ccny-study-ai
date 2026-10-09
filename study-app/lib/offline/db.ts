@@ -50,16 +50,14 @@ export async function queueEdit(
     await tx
       .objectStore("packs")
       .put({ ...pack, content: { ...pack.content, notes: data }, updated_at });
-  await tx
-    .objectStore("edits")
-    .put({
-      id,
-      user_id: pack.user_id,
-      pack_id: pack.id,
-      kind,
-      data,
-      updated_at,
-    });
+  await tx.objectStore("edits").put({
+    id,
+    user_id: pack.user_id,
+    pack_id: pack.id,
+    kind,
+    data,
+    updated_at,
+  });
   await tx.done;
   window.dispatchEvent(new Event("packs-changed"));
 }
@@ -78,6 +76,10 @@ export async function syncEdits() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(edit),
       });
+      if (response.status === 410) {
+        await db.delete("edits", edit.id);
+        continue;
+      }
       if (!response.ok) break;
       const current = await db.get("edits", edit.id);
       if (current?.updated_at === edit.updated_at)
