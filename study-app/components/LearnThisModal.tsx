@@ -1,6 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useStoredValue } from "@/hooks/useStoredValue";
+import { KEYS } from "@/lib/storage";
+import { DEFAULT_SPEECH_PREFERENCES, getServerSpeechState, getSpeechState, pauseSpeech, resumeSpeech, speakText, speechSupported, stopSpeech, subscribeSpeech, type SpeechPreferences } from "@/lib/speech";
 import { SavedCourse, SavedMajor } from "@/lib/chatWorkspace";
 
 type LearnThisQuestion = {
@@ -20,10 +23,6 @@ type LearnThisModalProps = {
 
 type Status = "loading" | "ready" | "error";
 
-function speechSupported(): boolean {
-  return typeof window !== "undefined" && "speechSynthesis" in window;
-}
-
 export function LearnThisModal({
   open,
   onClose,
@@ -34,8 +33,10 @@ export function LearnThisModal({
   const [status, setStatus] = useState<Status>("loading");
   const [explanation, setExplanation] = useState("");
   const [youtubeUrl, setYoutubeUrl] = useState("");
-  const [speaking, setSpeaking] = useState(false);
-  const [paused, setPaused] = useState(false);
+  const speech = useSyncExternalStore(subscribeSpeech, getSpeechState, getServerSpeechState);
+  const speaking = speech.status !== "idle";
+  const paused = speech.status === "paused";
+  const [preferences] = useStoredValue<SpeechPreferences>(KEYS.SPEECH_PREFERENCES, DEFAULT_SPEECH_PREFERENCES);
   const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
@@ -122,33 +123,12 @@ export function LearnThisModal({
   }, [open, question.question]);
 
   useEffect(() => {
-    if (status !== "ready" || !speechSupported() || !explanation) return;
-    const utterance = new SpeechSynthesisUtterance(explanation);
-    utterance.rate = 0.95;
-    utterance.onstart = () => {
-      setSpeaking(true);
-      setPaused(false);
-    };
-    utterance.onend = () => {
-      setSpeaking(false);
-      setPaused(false);
-    };
-    utterance.onerror = () => {
-      setSpeaking(false);
-      setPaused(false);
-    };
-    window.speechSynthesis.cancel();
-    window.speechSynthesis.speak(utterance);
-    return () => window.speechSynthesis.cancel();
-  }, [status, explanation]);
-
-  useEffect(() => {
     if (!open) {
-      if (speechSupported()) window.speechSynthesis.cancel();
+      stopSpeech();
       abortRef.current?.abort();
     }
     return () => {
-      if (speechSupported()) window.speechSynthesis.cancel();
+      stopSpeech();
     };
   }, [open]);
 
@@ -163,23 +143,8 @@ export function LearnThisModal({
 
   if (!open) return null;
 
-  const togglePause = () => {
-    if (!speechSupported()) return;
-    if (paused) {
-      window.speechSynthesis.resume();
-      setPaused(false);
-    } else {
-      window.speechSynthesis.pause();
-      setPaused(true);
-    }
-  };
-
-  const stopSpeaking = () => {
-    if (!speechSupported()) return;
-    window.speechSynthesis.cancel();
-    setSpeaking(false);
-    setPaused(false);
-  };
+  const togglePause = () => paused ? resumeSpeech() : pauseSpeech();
+  const stopSpeaking = stopSpeech;
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center px-4">
@@ -268,6 +233,7 @@ export function LearnThisModal({
         {/* voice controls */}
         {status === "ready" && speechSupported() && (
           <div className="mt-4 flex items-center gap-2">
+            <button type="button" onClick={() => speakText(explanation, preferences)} className="rounded-xl border border-[var(--app-border)] px-3 py-2 text-xs font-semibold">Listen</button>
             <button
               type="button"
               onClick={togglePause}
@@ -290,7 +256,7 @@ export function LearnThisModal({
                 ? paused
                   ? "Paused"
                   : "Reading aloud..."
-                : "Finished reading"}
+                : "Ready to listen"}
             </span>
           </div>
         )}

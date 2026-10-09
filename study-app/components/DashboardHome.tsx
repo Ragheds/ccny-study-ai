@@ -27,9 +27,10 @@ function getStreak(timestamps: number[]): number {
   return count;
 }
 
-export function DashboardHome({ major, courses, onOpen }: {
+export function DashboardHome({ major, courses, onOpen, selectedCourseCode }: {
   major: SavedMajor;
   courses: SavedCourse[];
+  selectedCourseCode?: string | null;
   onOpen: (tab: ActionTab, courseCode: string) => void;
 }) {
   const [chats] = useStoredValue<ChatWorkspace>(KEYS.CHAT_WORKSPACE, EMPTY_CHAT_WORKSPACE);
@@ -56,7 +57,7 @@ export function DashboardHome({ major, courses, onOpen }: {
   const recent = activity.find((item) => courses.some((course) => course.code === item.courseCode));
   const recentCourse = courses.find((course) => course.code === recent?.courseCode);
   const streak = getStreak(activity.map((item) => item.at));
-  const firstCourseCode = courses[0]?.code ?? "";
+  const firstCourseCode = courses.find((course) => course.code === selectedCourseCode)?.code ?? courses[0]?.code ?? "";
 
   return (
     <div className="mx-auto max-w-6xl space-y-8 px-4 pb-28 pt-6 sm:px-8 sm:pt-8 md:pb-10">

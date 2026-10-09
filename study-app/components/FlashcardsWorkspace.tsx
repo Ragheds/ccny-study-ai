@@ -28,7 +28,6 @@ type FlashcardsWorkspaceProps = {
   major: SavedMajor;
   courses: SavedCourse[];
   activeCourseCode?: string | null;
-  onActiveCourseChange?: (courseCode: string) => void;
 };
 type Toast = { id: string; msg: string; type: "success" | "error" };
 
@@ -253,7 +252,7 @@ function FlashcardStudyView({ set, onBack, onDelete }: { set: FlashcardSet; onBa
 }
 
 /* ── Main export ───────────────────────────────────────────────────── */
-export function FlashcardsWorkspace({ major, courses, activeCourseCode, onActiveCourseChange }: FlashcardsWorkspaceProps) {
+export function FlashcardsWorkspace({ major, courses, activeCourseCode }: FlashcardsWorkspaceProps) {
   const [rawStore, setRawStore] = useStoredValue(KEYS.FLASHCARDS, EMPTY_FLASHCARD_STORE);
   const store = normalizeFlashcardStore(rawStore);
 
@@ -262,7 +261,6 @@ export function FlashcardsWorkspace({ major, courses, activeCourseCode, onActive
     KEYS.UPLOAD_DRAFT, { text: "", fileName: "" }
   );
 
-  const [selCode, setSelCode] = useState(() => (courses.find((c) => c.code === activeCourseCode) ?? courses[0])?.code ?? "");
   const [focus, setFocus] = useState("");
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState("");
@@ -272,22 +270,15 @@ export function FlashcardsWorkspace({ major, courses, activeCourseCode, onActive
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [isExtractingPDF, setIsExtractingPDF] = useState(false);
   const [toasts, setToasts] = useState<Toast[]>([]);
-  const [pickerOpen, setPickerOpen] = useState(false);
 
   const addToast = (msg: string, type: Toast["type"] = "success") => {
     queueToast(setToasts, msg, type);
   };
 
-  const sel = courses.find(c => c.code === selCode) ?? courses[0] ?? null;
+  const sel = courses.find(c => c.code === activeCourseCode) ?? courses[0] ?? null;
   const sets = sel ? getCourseFlashcardSets(store, sel.code) : [];
   const activeSet = sel ? getActiveFlashcardSet(store, sel.code) : null;
   const groups = groupFlashcardSetsByDate(sets);
-
-  const chooseCourse = (c: SavedCourse) => {
-    setSelCode(c.code);
-    onActiveCourseChange?.(c.code);
-    setPickerOpen(false);
-  };
 
   /* ── file upload ─────────────────────────────────────────────────── */
   const handleFile = async (e: ChangeEvent<HTMLInputElement>) => {
@@ -420,26 +411,6 @@ export function FlashcardsWorkspace({ major, courses, activeCourseCode, onActive
 
       {/* ── Generate panel ──────────────────────────────────────── */}
       <div className="lg:w-[340px] shrink-0 space-y-4">
-        {/* Course picker */}
-        <div className="relative">
-          <button type="button" onClick={() => setPickerOpen(v => !v)}
-            className="w-full rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface)] px-4 py-3 text-left transition hover:border-[var(--app-border-strong)]">
-            <p className="text-[11px] font-semibold uppercase tracking-widest text-[var(--app-muted)]">Active course</p>
-            <p className="mt-0.5 font-mono text-sm font-bold text-[var(--app-text)]">{sel.code} — {sel.name}</p>
-          </button>
-          {pickerOpen && (
-            <div className="absolute top-full left-0 right-0 mt-1 z-30 rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface)] shadow-2xl overflow-auto max-h-60 p-2">
-              {courses.map(c => (
-                <button key={c.code} type="button" onClick={() => chooseCourse(c)}
-                  className={`w-full text-left rounded-xl px-3 py-2.5 transition ${c.code === sel.code ? "bg-[var(--app-surface-strong)]" : "hover:bg-[var(--app-surface-muted)]"}`}>
-                  <span className="font-mono text-xs font-bold" style={{ color: c.color }}>{c.code}</span>
-                  <span className="block text-xs text-[var(--app-text)] truncate">{c.name}</span>
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-
         {/* Focus input */}
         <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface)] p-4 space-y-3">
           <p className="text-xs font-semibold text-[var(--app-muted)] uppercase tracking-wide">Focus topic</p>

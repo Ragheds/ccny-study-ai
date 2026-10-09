@@ -42,7 +42,7 @@ function MD({ content }: { content: string }) {
 }
 
 /* ── messages ───────────────────────────────────────────────────── */
-function AIMessage({ msg, isNew }: { msg: ChatMessage; isNew: boolean }) {
+function AIMessage({ msg, isNew, onListen }: { msg: ChatMessage; isNew: boolean; onListen: (msg: ChatMessage) => void }) {
   return (
     <div className="group px-6 py-5 max-w-3xl mx-auto w-full flex gap-4">
       <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full" style={{
@@ -54,6 +54,7 @@ function AIMessage({ msg, isNew }: { msg: ChatMessage; isNew: boolean }) {
       </div>
       <div className="flex-1 min-w-0">
         <MD content={msg.content} />
+        <button type="button" onClick={() => onListen(msg)} className="mt-3 rounded-lg border border-[var(--app-border)] px-3 py-1.5 text-xs font-medium text-[var(--app-muted-strong)]">Listen</button>
         <p className="mt-2 text-[11px] text-[var(--app-muted)] opacity-0 transition-opacity group-hover:opacity-100">{formatTime(msg.timestamp)}</p>
       </div>
     </div>

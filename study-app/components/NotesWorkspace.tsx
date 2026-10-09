@@ -89,7 +89,6 @@ export function NotesWorkspace({ initialCourseCode = "" }: { initialCourseCode?:
   // ← FIXED: per-course notes (NOTES_V2) instead of one global blob
   const [notesStore, setNotesStore] = useStoredValue<NotesStore>(KEYS.NOTES_V2, initialNotesFallback);
 
-  const [selCode, setSelCode] = useState<string>(initialCourseCode);
   const [loading, setLoading] = useState(false);
   const [streamingContent, setStreamingContent] = useState("");
   const [toasts, setToasts] = useState<Toast[]>([]);
@@ -102,8 +101,8 @@ export function NotesWorkspace({ initialCourseCode = "" }: { initialCourseCode?:
   };
 
   const selectedCourseCode =
-    selCode && courses.some((course) => course.code === selCode)
-      ? selCode
+    initialCourseCode && courses.some((course) => course.code === initialCourseCode)
+      ? initialCourseCode
       : courses[0]?.code ?? "";
 
   const sel = courses.find((course) => course.code === selectedCourseCode) ?? courses[0] ?? null;
@@ -207,26 +206,7 @@ export function NotesWorkspace({ initialCourseCode = "" }: { initialCourseCode?:
             </p>
           </div>
 
-          {/* ← FIXED: per-course picker */}
-          {courses.length > 0 && (
-            <div className="flex flex-wrap gap-2">
-              {courses.map(c => (
-                <button
-                  key={c.code}
-                  type="button"
-                  onClick={() => setSelCode(c.code)}
-                  className="rounded-xl px-3 py-1.5 text-xs font-semibold transition"
-                  style={{
-                    background: activeCourseCode === c.code ? c.color : "var(--app-surface)",
-                    color: activeCourseCode === c.code ? "#fff" : "var(--app-muted)",
-                    border: `1.5px solid ${activeCourseCode === c.code ? c.color : "var(--app-border)"}`,
-                  }}
-                >
-                  {c.code}
-                </button>
-              ))}
-            </div>
-          )}
+
         </div>
 
         {courses.length === 0 ? (

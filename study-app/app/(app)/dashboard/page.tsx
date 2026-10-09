@@ -63,7 +63,7 @@ function DashboardContent() {
 
   return <div className="min-h-full bg-[var(--app-bg)] text-[var(--app-text)]">
     <CourseModeBar courses={courses} selectedCourse={selectedCourse} activeMode={activeMode} onHome={() => openTab("courses", null)} onOpen={(mode, courseCode) => openTab(mode, courseCode)} onCourseChange={(code) => navigate(undefined, code)} />
-    {activeTab === "courses" && <DashboardHome major={major} courses={courses} onOpen={openTab} />}
+    {activeTab === "courses" && <DashboardHome major={major} courses={courses} onOpen={openTab} selectedCourseCode={activeCourseCode} />}
     {activeTab === "ai" && <AITutor key={activeCourseCode ?? "ai"} major={major} courses={courses} activeCourseCode={activeCourseCode} />}
     {activeTab === "whiteboard" && <PhasePreview title="Whiteboard" phase={8} onChat={() => openTab("ai")} />}
     {activeTab === "notes" && <NotesWorkspace key={activeCourseCode ?? "notes"} initialCourseCode={activeCourseCode ?? ""} />}
