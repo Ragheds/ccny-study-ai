@@ -1,10 +1,12 @@
 "use client";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useStoredValue } from "@/hooks/useStoredValue";
 import { KEYS } from "@/lib/storage";
 import type { AutoNote, AutoNotesStore } from "@/lib/autoNotes";
 import { downloadPack } from "@/lib/offline/db";
 export function AutoNotesPanel({ courseCode }: { courseCode: string }) {
+  const router = useRouter();
   const [store, setStore] = useStoredValue<AutoNotesStore>(KEYS.NOTES_V2, {});
   const [status, setStatus] = useState("");
   const [busy, setBusy] = useState(false);
@@ -44,7 +46,7 @@ export function AutoNotesPanel({ courseCode }: { courseCode: string }) {
       const data = await response.json();
       if (!response.ok) throw Error(data.error);
       await downloadPack(data.pack);
-      window.location.assign(
+      router.push(
         `/offline?pack=${encodeURIComponent(data.pack.id)}#${view}`,
       );
     } catch (error) {

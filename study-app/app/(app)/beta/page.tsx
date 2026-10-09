@@ -2,7 +2,7 @@ import { studentAccess } from "@/lib/server/access";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { notFound } from "next/navigation";
 export default async function BetaPage() {
-  const access = await studentAccess();
+  const access = await studentAccess().catch(() => null);
   if (
     !access ||
     !(process.env.ADMIN_USER_IDS ?? "")
@@ -22,6 +22,17 @@ export default async function BetaPage() {
         Opt-in accounts only. Sessions are counted once per account per hour.
         Retention is the share of last week’s active accounts returning this
         week; small cohorts are noisy.
+      </p>
+      <p>
+        Returning share:{" "}
+        {data?.previous_week_active
+          ? `${Math.round((100 * data.returning_students) / data.previous_week_active)}%`
+          : "Not enough data"}
+        . Sessions per active student:{" "}
+        {data?.weekly_active_students
+          ? (data.sessions_this_week / data.weekly_active_students).toFixed(1)
+          : "Not enough data"}
+        .
       </p>
       <dl className="grid gap-4 sm:grid-cols-2">
         {Object.entries(data ?? {}).map(([key, value]) => (

@@ -332,6 +332,9 @@ export function WhiteboardTutor({
             steps={steps}
             index={Math.min(index, steps.length - 1)}
             chalk={chalk}
+            speed={speed}
+            animate={playing}
+            paused={!playing || speech.status === "paused"}
           />
           {captions && (
             <p className="rounded-xl border p-3" aria-live="polite">

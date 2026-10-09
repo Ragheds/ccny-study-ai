@@ -2,7 +2,10 @@
 import { PackDownload } from "@/components/PackDownload";
 
 import Link from "next/link";
-import { useMemo } from "react";
+import { devicePacks } from "@/lib/offline/db";
+import { STORAGE_CHANGE_EVENT } from "@/lib/storage";
+import type { StudyPack } from "@/lib/packs";
+import { useEffect, useMemo, useState } from "react";
 import { useStoredValue } from "@/hooks/useStoredValue";
 import { KEYS } from "@/lib/storage";
 import { EMPTY_CHAT_WORKSPACE, type ChatWorkspace, type SavedCourse, type SavedMajor } from "@/lib/chatWorkspace";
@@ -34,6 +37,14 @@ export function DashboardHome({ major, courses, onOpen, selectedCourseCode }: {
   selectedCourseCode?: string | null;
   onOpen: (tab: ActionTab, courseCode: string) => void;
 }) {
+  const [packs, setPacks] = useState<StudyPack[]>([]);
+  useEffect(() => {
+    const refresh = () => devicePacks().then(setPacks).catch(() => {});
+    refresh();
+    window.addEventListener("packs-changed", refresh);
+    window.addEventListener(STORAGE_CHANGE_EVENT, refresh);
+    return () => { window.removeEventListener("packs-changed", refresh); window.removeEventListener(STORAGE_CHANGE_EVENT, refresh); };
+  }, []);
   const [chats] = useStoredValue<ChatWorkspace>(KEYS.CHAT_WORKSPACE, EMPTY_CHAT_WORKSPACE);
   const [flashcards] = useStoredValue<FlashcardStore>(KEYS.FLASHCARDS, EMPTY_FLASHCARD_STORE);
   const [quizzes] = useStoredValue<QuizStore>(KEYS.QUIZ_RESULTS, EMPTY_QUIZ_STORE);
@@ -95,7 +106,7 @@ export function DashboardHome({ major, courses, onOpen, selectedCourseCode }: {
             ["ai", "✦", "Ask the tutor"],
             ["quizzes", "?", "Quiz me"],
             ["flashcards", "▤", "Review cards"],
-            ["whiteboard", "▧", "Whiteboard preview"],
+            ["whiteboard", "▧", "Start whiteboard"],
           ] as const).map(([tab, icon, label]) => (
             <button key={tab} type="button" disabled={!firstCourseCode} onClick={() => onOpen(tab, firstCourseCode)}
               className="flex min-h-[5.25rem] flex-col items-start justify-between rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface)] p-3.5 text-left text-sm font-semibold text-[var(--app-text)] transition hover:border-[var(--app-border-strong)] hover:bg-[var(--app-surface-muted)] disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-[var(--app-accent)]">
@@ -119,7 +130,7 @@ export function DashboardHome({ major, courses, onOpen, selectedCourseCode }: {
                 <button key={course.code} type="button" onClick={() => onOpen("ai", course.code)}
                   className="flex w-full items-center gap-3 rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface)] p-3.5 text-left transition hover:border-[var(--app-border-strong)] hover:bg-[var(--app-surface-muted)] focus-visible:outline-2 focus-visible:outline-[var(--app-accent)]">
                   <span className="h-10 w-1 shrink-0 rounded-full" style={{ background: course.color }} />
-                  <span className="min-w-0 flex-1"><strong className="block truncate text-sm text-[var(--app-text)]">{course.code} · {course.name}</strong><span className="mt-1 block text-xs text-[var(--app-muted)]">Online only · Offline size shown above</span></span>
+                  <span className="min-w-0 flex-1"><strong className="block truncate text-sm text-[var(--app-text)]">{course.code} · {course.name}</strong><span className="mt-1 block text-xs text-[var(--app-muted)]">{packs.some(pack => pack.course_code === course.code) ? "Pack saved on this device" : "Pack not downloaded"}</span></span>
                   <span className="text-[var(--app-muted)]" aria-hidden="true">→</span>
                 </button>
               ))}
@@ -134,8 +145,8 @@ export function DashboardHome({ major, courses, onOpen, selectedCourseCode }: {
           </div>
           <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface)] p-5">
             <p className="text-xs font-semibold text-[var(--app-muted-strong)]">Offline readiness</p>
-            <p className="mt-3 text-sm font-semibold text-[var(--app-text)]">No course packs downloaded</p>
-            <p className="mt-2 text-xs leading-relaxed text-[var(--app-muted)]">Download your packs above before leaving. For now, saved notes on this device may remain available, but AI needs internet.</p>
+            <p className="mt-3 text-sm font-semibold text-[var(--app-text)]">{packs.length ? `${packs.length} pack${packs.length === 1 ? "" : "s"} saved on this device` : "No packs downloaded"}</p>
+            <p className="mt-2 text-xs leading-relaxed text-[var(--app-muted)]">Download packs before leaving. Cards, quizzes, notes and saved lessons are in Offline study. AI needs internet.</p>
           </div>
         </aside>
       </div>

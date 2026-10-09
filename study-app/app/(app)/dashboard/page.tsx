@@ -24,10 +24,10 @@ type TabId = "courses" | WorkspaceMode | "flashcards" | "quizzes" | "planner";
 const VALID_TABS: TabId[] = ["courses", "ai", "whiteboard", "notes", "code", "flashcards", "quizzes", "planner"];
 const COURSE_MODES: WorkspaceMode[] = ["ai", "whiteboard", "notes", "code"];
 
-function PhasePreview({ title, phase, onChat }: { title: string; phase: number; onChat: () => void }) {
+function PhasePreview({ title, onChat }: { title: string; onChat: () => void }) {
   return <section className="mx-auto mt-8 max-w-3xl px-4 sm:px-6">
     <div className="rounded-3xl border border-[var(--app-border)] bg-[var(--app-surface)] p-6 sm:p-10">
-      <p className="text-xs font-bold uppercase tracking-widest text-[var(--app-accent)]">Coming in Phase {phase}</p>
+      <p className="text-xs font-bold uppercase tracking-widest text-[var(--app-accent)]">Not available yet</p>
       <h1 className="mt-3 text-2xl font-semibold text-[var(--app-text)]">{title}</h1>
       <p className="mt-3 max-w-xl text-sm leading-6 text-[var(--app-muted-strong)]">This workspace is on the way. You can study this course with the tutor now.</p>
       <button type="button" onClick={onChat} className="mt-6 rounded-xl bg-[var(--app-text)] px-5 py-3 text-sm font-semibold text-[var(--app-bg)]">Open chat →</button>
@@ -65,6 +65,7 @@ function DashboardContent() {
 
   return <div className="min-h-full bg-[var(--app-bg)] text-[var(--app-text)]">
     <CourseModeBar courses={courses} selectedCourse={selectedCourse} activeMode={activeMode} onHome={() => openTab("courses", null)} onOpen={(mode, courseCode) => openTab(mode, courseCode)} onCourseChange={(code) => navigate(undefined, code)} />
+    <div key={`${activeTab}:${activeCourseCode}`} className="study-mode-enter">
     {activeTab === "courses" && <DashboardHome major={major} courses={courses} onOpen={openTab} selectedCourseCode={activeCourseCode} />}
     {activeTab === "ai" && <AITutor key={activeCourseCode ?? "ai"} major={major} courses={courses} activeCourseCode={activeCourseCode} />}
     {activeTab === "whiteboard" && <WhiteboardTutor key={activeCourseCode ?? "board"} courseCode={activeCourseCode ?? ""} />}
@@ -72,6 +73,7 @@ function DashboardContent() {
     {activeTab === "code" && <CodeWorkspace key={activeCourseCode ?? "code"} courseCode={activeCourseCode ?? ""} />}
     {activeTab === "flashcards" && <FlashcardsWorkspace key={activeCourseCode ?? "flashcards"} major={major} courses={courses} activeCourseCode={activeCourseCode} />}
     {activeTab === "quizzes" && <QuizzesTab key={activeCourseCode ?? "quizzes"} major={major} courses={courses} activeCourseCode={activeCourseCode} />}
-    {activeTab === "planner" && <PhasePreview title="Study planner" phase={7} onChat={() => openTab("ai")} />}
+    {activeTab === "planner" && <PhasePreview title="Study planner" onChat={() => openTab("ai")} />}
+    </div>
   </div>;
 }

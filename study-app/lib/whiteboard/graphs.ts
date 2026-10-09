@@ -4,7 +4,7 @@ import {
   type FunctionNode,
   type OperatorNode,
   type SymbolNode,
-} from "mathjs";
+} from "mathjs/number";
 export function restrictedFunction(expression: string): (x: number) => number {
   if (expression.length > 120) throw Error("Expression too long.");
   const root = parse(expression);
@@ -85,4 +85,21 @@ export function sampleFunction(
   }
   if (line.length > 1) segments.push(line);
   return segments;
+}
+
+export function graphTicks(min: number, max: number) {
+  const rough = (max - min) / 6;
+  const magnitude = 10 ** Math.floor(Math.log10(rough));
+  const step =
+    [1, 2, 5, 10]
+      .map((value) => value * magnitude)
+      .find((value) => value >= rough) ?? magnitude * 10;
+  const ticks: number[] = [];
+  for (
+    let value = Math.ceil(min / step) * step;
+    value <= max + step * 1e-8 && ticks.length < 12;
+    value += step
+  )
+    ticks.push(Number(value.toPrecision(8)));
+  return ticks;
 }

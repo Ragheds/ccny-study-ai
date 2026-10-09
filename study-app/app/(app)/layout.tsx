@@ -17,7 +17,7 @@ export default async function AppLayout({
     <AppDataProvider initial={initial}>
       <div className="flex h-dvh overflow-hidden" style={{ background: "var(--app-bg)" }}>
         <AppSidebar />
-        <main className="min-h-0 min-w-0 flex-1 overflow-y-auto pb-16 md:pb-0">{children}<BetaTools /></main>
+        <main data-study-workspace className="min-h-0 min-w-0 flex-1 overflow-y-auto pb-16 md:pb-0">{children}<BetaTools /></main>
         <Suspense><MobileAppNav /></Suspense>
       </div>
     </AppDataProvider>

@@ -1028,3 +1028,22 @@ body:has(.auth-page) {
 @keyframes board-plots { from {opacity:0;} to {opacity:1;} }
 .board-plots { animation: board-plots 700ms 300ms ease both; }
 @media (prefers-reduced-motion: reduce) { .board-write,.board-plots {animation:none;} }
+
+/* Workspace feedback, keyboard navigation and accessible motion defaults. */
+:where(button, a, input, textarea, select):focus-visible {
+  outline: 2px solid var(--app-accent);
+  outline-offset: 3px;
+}
+[data-study-workspace] :where(button, select) { min-height: 44px; }
+:where(textarea, select) { background: var(--app-surface); color: var(--app-text); }
+.board-write { overflow-wrap: anywhere; }
+[data-paused="true"] .board-plots { animation-play-state: paused; }
+.study-mode-enter { animation: study-mode-enter 180ms ease-out both; }
+@keyframes study-mode-enter { from { opacity: .4; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+}

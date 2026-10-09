@@ -18,6 +18,13 @@ export function useCourseSelection(courses: SavedCourse[]) {
     if (urlCourse && savedCode !== urlCourse.code) setSavedCode(urlCourse.code);
   }, [savedCode, setSavedCode, urlCourse]);
 
+  useEffect(() => {
+    if (searchParams.get("tab") !== "code" || (selectedCourse && isCodeCourse(selectedCourse.code))) return;
+    const params = new URLSearchParams(window.location.search);
+    params.set("tab", "ai");
+    window.history.replaceState(null, "", `${window.location.pathname}?${params}`);
+  }, [searchParams, selectedCourse]);
+
   function navigate(tab?: string | null, requestedCode?: string | null) {
     const target = courses.find((course) => course.code === requestedCode) ?? selectedCourse;
     if (target && target.code !== savedCode) setSavedCode(target.code);

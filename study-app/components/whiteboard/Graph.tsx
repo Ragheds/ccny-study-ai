@@ -1,7 +1,7 @@
 "use client";
 import { useId } from "react";
 import type { GraphBlock } from "@/lib/whiteboard/schema";
-import { sampleFunction } from "@/lib/whiteboard/graphs";
+import { sampleFunction, graphTicks } from "@/lib/whiteboard/graphs";
 export function Graph({ block }: { block: GraphBlock }) {
   const clip = useId().replaceAll(":", "");
   const [xmin, xmax] = block.xRange,
@@ -9,7 +9,8 @@ export function Graph({ block }: { block: GraphBlock }) {
   const X = (x: number) => 40 + ((x - xmin) / (xmax - xmin)) * 280;
   const Y = (y: number) => 240 - ((y - ymin) / (ymax - ymin)) * 210;
   const colors = ["#2563eb", "#dc2626", "#059669", "#9333ea", "#d97706"];
-  const ticks = Array.from({ length: 6 }, (_, i) => i);
+  const xTicks = graphTicks(xmin, xmax),
+    yTicks = graphTicks(ymin, ymax);
   const invalid: string[] = [];
   const plots = block.plots.map((plot, index) => {
     const stroke = colors[index];
@@ -77,35 +78,40 @@ export function Graph({ block }: { block: GraphBlock }) {
         role="img"
         aria-label={`Graph. x from ${xmin} to ${xmax}; y from ${ymin} to ${ymax}`}
         className="w-full rounded-xl bg-white text-slate-800"
+        style={{ fontFamily: "var(--font-inter), sans-serif" }}
       >
         <defs>
           <clipPath id={clip}>
             <rect x={40} y={30} width={280} height={210} />
           </clipPath>
         </defs>
-        {ticks.map((i) => (
-          <g key={i} stroke="#cbd5e1" strokeWidth={0.6}>
-            <line x1={40 + i * 56} x2={40 + i * 56} y1={30} y2={240} />
-            <line x1={40} x2={320} y1={30 + i * 42} y2={30 + i * 42} />
+        {xTicks.map((value) => (
+          <g key={`x:${value}`} stroke="#cbd5e1" strokeWidth={0.6}>
+            <line x1={X(value)} x2={X(value)} y1={30} y2={240} />
             <text
-              x={40 + i * 56}
+              x={X(value)}
               y={256}
               textAnchor="middle"
               fill="currentColor"
               stroke="none"
-              fontSize={10}
+              fontSize={12}
             >
-              {Number((xmin + ((xmax - xmin) * i) / 5).toFixed(2))}
+              {value}
             </text>
+          </g>
+        ))}
+        {yTicks.map((value) => (
+          <g key={`y:${value}`} stroke="#cbd5e1" strokeWidth={0.6}>
+            <line x1={40} x2={320} y1={Y(value)} y2={Y(value)} />
             <text
               x={34}
-              y={244 - i * 42}
+              y={Y(value) + 4}
               textAnchor="end"
               fill="currentColor"
               stroke="none"
-              fontSize={10}
+              fontSize={12}
             >
-              {Number((ymin + ((ymax - ymin) * i) / 5).toFixed(2))}
+              {value}
             </text>
           </g>
         ))}

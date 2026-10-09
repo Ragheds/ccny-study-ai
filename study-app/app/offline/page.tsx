@@ -1,4 +1,4 @@
 import { OfflineLibrary } from "@/components/OfflineLibrary";
 export default function OfflinePage() {
-  return <OfflineLibrary />;
+  return <div data-study-workspace><OfflineLibrary /></div>;
 }

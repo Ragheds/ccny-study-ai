@@ -21,22 +21,34 @@ export function Board({
   steps,
   index,
   chalk = false,
+  paused = false,
+  speed = 1,
+  animate = true,
 }: {
   steps: Step[];
   index: number;
   chalk?: boolean;
+  paused?: boolean;
+  speed?: number;
+  animate?: boolean;
 }) {
   return (
     <div
       className={`${handwriting.className} space-y-4 rounded-2xl border p-5 text-xl ${chalk ? "bg-slate-900 text-slate-50" : "bg-white text-slate-900"}`}
       aria-label="Lesson board"
+      data-paused={paused}
     >
       {visibleBlocks(steps, index).map((block) => (
         <div
           key={block.id}
-          className="board-write"
+          className={
+            animate && steps[index]?.board.some((item) => item.id === block.id)
+              ? "board-write"
+              : undefined
+          }
           style={{
-            animationDuration: `${Math.min(5, Math.max(1, steps[index]?.say.length / 25 || 1))}s`,
+            animationDuration: `${Math.max(1, (steps.find((step) => step.board.some((item) => item.id === block.id))?.say.length ?? 25) / 14 / speed)}s`,
+            animationPlayState: paused ? "paused" : "running",
           }}
         >
           {block.t === "heading" ? (

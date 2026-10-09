@@ -1,8 +1,7 @@
-import { OfflineBridge } from "@/components/OfflineBridge";
+import { AccountServices } from "@/components/AccountServices";
 import type { Metadata } from "next";
 import { Inter, Lora, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import { SupabaseAccountBridge } from "@/components/SupabaseAccountBridge";
 import { ThemeProvider } from "@/components/ThemeProvider";
 
 const inter = Inter({
@@ -36,8 +35,7 @@ export default function RootLayout({
         className={`${inter.variable} ${lora.variable} ${geistMono.variable} bg-[var(--app-bg)] text-[var(--app-text)] antialiased`}
       >
         <ThemeProvider>
-          <SupabaseAccountBridge />
-          <OfflineBridge />{children}
+          <AccountServices />{children}
         </ThemeProvider>
       </body>
     </html>

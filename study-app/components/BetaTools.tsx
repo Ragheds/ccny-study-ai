@@ -46,7 +46,7 @@ export function BetaTools() {
           checked={consent}
           onChange={(event) => setConsent(event.target.checked)}
         />
-        Share anonymous-looking activity counts (linked to your account; no
+        Share study activity counts (linked to your account; no
         study text)
       </label>
       <details>
