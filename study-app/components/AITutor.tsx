@@ -546,7 +546,10 @@ export function AITutor({ major, courses, activeCourseCode }: AITutorProps) {
         }),
       });
 
-      if (!res.ok || !res.body) throw new Error(await res.text() || "Failed");
+      if (!res.ok || !res.body) {
+        const error = await res.json().catch(() => ({}));
+        throw new Error(error.error || "The tutor is unavailable. Please try again.");
+      }
 
       const reader  = res.body.getReader();
       const decoder = new TextDecoder();
@@ -570,10 +573,10 @@ export function AITutor({ major, courses, activeCourseCode }: AITutorProps) {
       }
       setNewMsgId(aiMsg.id); setTimeout(() => setNewMsgId(null), 700);
       setWorkspace(cur => appendMessagesToConversation(cur, wc.conversationId, [aiMsg]));
-    } catch {
+    } catch (error) {
       if (controller.signal.aborted) return;
       if (pendingFrame) cancelAnimationFrame(pendingFrame);
-      const errMsg = createChatMessage("ai", "Failed to get a response. Please try again.");
+      const errMsg = createChatMessage("ai", error instanceof Error ? error.message : "Needs internet. Please reconnect to ask the tutor.");
       setWorkspace(cur => appendMessagesToConversation(cur, wc.conversationId, [errMsg]));
     } finally {
       if (pendingFrame) cancelAnimationFrame(pendingFrame);

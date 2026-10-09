@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import { TUTOR_LIMITS } from "@/lib/tutorLimits";
+import { studentAccess } from "@/lib/server/access";
+import { modelFor, estimateCost } from "@/lib/models";
 import { isStudyMode, studyModeInstruction, type StudyMode } from "@/lib/studyMode";
 
 type TutorHistoryMessage = {
@@ -31,50 +32,6 @@ type TutorRequestBody = {
   courseSection?: string;
   studyMode?: StudyMode;
 };
-
-// ── model routing ────────────────────────────────────────────────────────────
-// Each route lists free models in preference order. One student request gets one usage row.
-const ROUTERS = {
-  // Code questions: Qwen Coder first (best free coding model)
-  code: [
-    "qwen/qwen3-coder:free",
-    "openrouter/free",
-  ],
-  // Reasoning / math / proofs: DeepSeek R1 first
-  reasoning: [
-    "deepseek/deepseek-r1:free",
-    "qwen/qwen3-coder:free",
-    "openrouter/free",
-  ],
-  // Fast general queries
-  fast: [
-    "openrouter/free",
-    "qwen/qwen3-coder:free",
-  ],
-};
-
-function detectRoute(message: string, action: string): keyof typeof ROUTERS {
-  const lower = message.toLowerCase();
-
-  const codeKeywords = [
-    "code", "error", "debug", "bug", "syntax", "function", "compile",
-    "runtime", "exception", "stack trace", "not working", "fix this",
-    "segfault", "python", "java", "c++", "javascript", "typescript", "algorithm",
-  ];
-  if (codeKeywords.some((kw) => lower.includes(kw))) return "code";
-
-  const reasoningKeywords = [
-    "math", "calculus", "proof", "equation", "theorem", "derive", "integral",
-    "derivative", "statistics", "probability", "logic", "physics", "chemistry",
-    "formula", "solve", "calculate",
-  ];
-  if (reasoningKeywords.some((kw) => lower.includes(kw))) return "reasoning";
-
-  if (["quiz", "flashcards", "studyguide", "summary", "explain_answer"].includes(action)) return "reasoning";
-  if (message.length > 300) return "reasoning";
-
-  return "fast";
-}
 
 function normalizeTutorContext(body: TutorRequestBody): Required<TutorContext> {
   const context = body.context ?? {};
@@ -372,8 +329,9 @@ export async function POST(req: NextRequest) {
       action, major, majorCode, school, course, courseCode, courseSection, studyMode
     );
 
-    const routeKey = detectRoute(message, action);
-    const models = ROUTERS[routeKey];
+    const access = await studentAccess();
+    if (!access) return NextResponse.json({ error: "Sign in first." }, { status: 401 });
+    const models = [modelFor(action).id];
     const historyMessages = normalizeHistory(body.history);
 
     const requestBody = {
@@ -395,21 +353,21 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Tutor unavailable" }, { status: 503 });
     }
     const reservedTokens = Math.min(8192, Math.ceil(JSON.stringify(requestBody).length / 4) + requestBody.max_tokens);
-    const { data: usageId, error: quotaError } = await admin.rpc("reserve_tutor_usage", {
-      p_user_id: auth.user.id,
+    const { data: usageId, error: quotaError } = await admin.rpc("reserve_plan_usage", {
+      p_user: auth.user.id,
       p_feature: action,
       p_model: models[0],
-      p_reserved_tokens: reservedTokens,
-      p_daily_token_cap: TUTOR_LIMITS.reservedTokensPerDay,
-      p_daily_request_cap: TUTOR_LIMITS.requestsPerDay,
-      p_minute_request_cap: TUTOR_LIMITS.requestsPerMinute,
+      p_tokens: reservedTokens,
+      p_daily_tokens: access.limits.reservedTokensPerDay,
+      p_daily_requests: access.limits.requestsPerDay,
+      p_minute: access.limits.requestsPerMinute,
     });
     if (quotaError) {
       console.error("Tutor usage reservation failed:", quotaError.message);
       return NextResponse.json({ error: "Tutor unavailable. Please try again later." }, { status: 503 });
     }
     if (!usageId) {
-      return NextResponse.json({ error: "Daily tutor limit reached. Try again tomorrow." }, { status: 429 });
+      return NextResponse.json({ error: "Your study allowance is reached. If you just sent several requests, wait a minute; otherwise try tomorrow (UTC reset) or check your plan." }, { status: 429 });
     }
 
     let finished = false;
@@ -421,6 +379,7 @@ export async function POST(req: NextRequest) {
         model,
         input_tokens: inputTokens ?? Math.ceil(JSON.stringify(requestBody).length / 4),
         output_tokens: outputTokens ?? null,
+        estimated_cost_usd: estimateCost(model, inputTokens ?? reservedTokens, outputTokens ?? requestBody.max_tokens),
       }).eq("id", usageId);
       if (error) console.error("Tutor usage update failed:", error.message);
     };
@@ -436,6 +395,6 @@ export async function POST(req: NextRequest) {
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Internal server error";
     console.error("Tutor API error:", message);
-    return NextResponse.json({ error: message }, { status: 500 });
+    return NextResponse.json({ error: "Tutor unavailable. Please try again later." }, { status: 503 });
   }
 }
