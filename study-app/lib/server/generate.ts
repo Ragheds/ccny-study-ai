@@ -20,12 +20,20 @@ export async function generateText(
   if (!access) throw new StudyError("Sign in to study with AI.", 401);
   if (feature === "whiteboard" && !access.limits.whiteboard)
     throw new StudyError("Whiteboard needs Pro or a beta invite.", 403);
+  if (feature === "code") {
+    if (!access.limits.code)
+      throw new StudyError("Code mode needs Pro or a beta invite.", 403);
+    if (process.env.AI_ENABLE_HIGHER_TIERS !== "true")
+      throw new StudyError(
+        "Code mode is waiting for the owner's AI budget. Use Chat for now.",
+      );
+  }
   const key = process.env.OPENROUTER_API_KEY;
   if (!key) throw new StudyError("AI is not configured.");
   const model = modelFor(feature);
   const admin = createSupabaseAdminClient();
   const tokens = Math.min(
-    8192,
+    16000,
     Math.ceil((system.length + message.length) / 3) + maxTokens,
   );
   const { data: id, error } = await admin.rpc("reserve_plan_usage", {
@@ -36,7 +44,12 @@ export async function generateText(
     p_daily_tokens: access.limits.reservedTokensPerDay,
     p_daily_requests: access.limits.requestsPerDay,
     p_minute: access.limits.requestsPerMinute,
-    p_feature_cap: feature === "upload" ? access.limits.uploadsPerDay : null,
+    p_feature_cap:
+      feature === "upload"
+        ? access.limits.uploadsPerDay
+        : feature === "code"
+          ? access.limits.codePerDay
+          : null,
   });
   if (error)
     throw new StudyError("Usage service unavailable. Check migrations.");

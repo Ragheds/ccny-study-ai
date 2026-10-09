@@ -312,6 +312,7 @@ export async function POST(req: NextRequest) {
     }
 
     const action = body.action ?? "general";
+    if (!["general", "quiz", "flashcards", "studyguide", "summary", "explain_answer"].includes(action)) return Response.json({ error: "Use the matching study workspace." }, { status: 400 });
     const { major, majorCode, school, course, courseCode, courseSection } =
       normalizeTutorContext(body);
 
