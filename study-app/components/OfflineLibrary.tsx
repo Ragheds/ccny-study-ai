@@ -25,7 +25,18 @@ export function OfflineLibrary() {
       setAccount(getActiveAccountId());
       setCurrent((old) => (old?.user_id === getActiveAccountId() ? old : null));
       devicePacks()
-        .then(setPacks)
+        .then((items) => {
+          setPacks(items);
+          const requested = items.find(
+            (item) =>
+              item.id ===
+              new URLSearchParams(window.location.search).get("pack"),
+          );
+          if (requested) {
+            setCurrent(requested);
+            setNotes(requested.content.notes);
+          }
+        })
         .catch(() =>
           setStatus(
             "Device storage unavailable. Check browser storage settings.",
@@ -160,7 +171,7 @@ export function OfflineLibrary() {
               </p>
             ))}
           </details>
-          <h3>Flashcards</h3>
+          <h3 id="cards">Flashcards</h3>
           {current.content.cards.map((card, index) => (
             <details key={index} className="rounded-xl border p-3">
               <summary>{card.front}</summary>
@@ -179,7 +190,7 @@ export function OfflineLibrary() {
               </button>
             </details>
           ))}
-          <h3>Practice quiz</h3>
+          <h3 id="quiz">Practice quiz</h3>
           {current.content.quiz.map((question, index) => (
             <fieldset
               key={`${current.id}:${index}`}

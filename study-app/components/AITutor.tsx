@@ -23,6 +23,7 @@ import {
 } from "@/lib/chatWorkspace";
 import { KEYS } from "@/lib/storage";
 import type { StudyMode } from "@/lib/studyMode";
+import { useAutoNotes } from "@/hooks/useAutoNotes";
 import { SpeechToolbar } from "@/components/SpeechToolbar";
 import { DEFAULT_SPEECH_PREFERENCES, speakText, stopSpeech, type SpeechPreferences } from "@/lib/speech";
 import { StarburstLogo } from "@/components/StarburstLogo";
@@ -453,6 +454,7 @@ export function AITutor({ major, courses, activeCourseCode }: AITutorProps) {
   }, []);
 
   const sel    = courses.find(c => c.code === activeCourseCode) ?? courses[0] ?? null;
+  const captureNote = useAutoNotes(sel?.code ?? "");
   const convs  = sel ? getCourseConversations(workspace, sel.code) : [];
   const aConvId = sel ? workspace.activeByCourse[sel.code] : undefined;
   const aConv   = aConvId ? workspace.conversationsById[aConvId] : undefined;
@@ -571,6 +573,7 @@ export function AITutor({ major, courses, activeCourseCode }: AITutorProps) {
       if (studyMode === "audio" && speechPreferences.autoplay && fullText) {
         speakText(fullText, speechPreferences, aiMsg.id);
       }
+      if(fullText) captureNote(aiMsg.id,fullText);
       setNewMsgId(aiMsg.id); setTimeout(() => setNewMsgId(null), 700);
       setWorkspace(cur => appendMessagesToConversation(cur, wc.conversationId, [aiMsg]));
     } catch (error) {

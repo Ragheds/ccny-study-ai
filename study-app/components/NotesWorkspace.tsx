@@ -1,4 +1,5 @@
 "use client";
+import { AutoNotesPanel } from "@/components/AutoNotesPanel";
 
 import { useState, useRef } from "react";
 import ReactMarkdown from "react-markdown";
@@ -209,6 +210,7 @@ export function NotesWorkspace({ initialCourseCode = "" }: { initialCourseCode?:
 
         </div>
 
+        <AutoNotesPanel courseCode={activeCourseCode} />
         {courses.length === 0 ? (
           <div className="rounded-3xl border border-dashed border-[var(--app-border)] py-20 text-center">
             <p className="text-[var(--app-muted)]">Add courses first from the dashboard.</p>
